@@ -1,9 +1,10 @@
 <!DOCTYPE html>
-<html>
+<html lang="bg">
 <head>
     <meta charset="UTF-8">
     <title>Aesthetic Solver</title>
     <link rel="stylesheet" href="styles.css">
+    <link rel="icon" href="data:,">
 </head>
 <body>
     <header>
@@ -14,23 +15,38 @@
         </div>
     </header>
 
-    <main>
-        <div class="input-panel">
-            <label id="ui-base-num">Основно число (Nom):</label>
-            <input type="number" id="baseNum" value="200">
+    <main style="display: flex; flex-direction: column; padding: 20px; gap: 20px;">
+        <div class="input-panel" style="background: #eee; padding: 15px; border-radius: 8px;">
+            <label id="ui-base-num">Nom:</label>
+            <input type="number" id="baseNum" value="200" style="width: 80px;">
+            
+            <label>Система:</label>
+            <select id="ratioSelect">
+                <option value="rpch2">II РПЧ (1.059)</option>
+                <option value="rpch3">III РПЧ (1.122)</option>
+                <option value="rpch4">IV РПЧ (1.259)</option>
+                <option value="rzs">РЗС (1.272)</option>
+                <option value="rzv">РЗВ (1.309)</option>
+                <option value="zs" selected>ЗС (1.618)</option>
+            </select>
+            
             <button id="ui-calculate" onclick="calculate()">Анализ</button>
         </div>
         
-        <div id="results-area">
-            <table id="propsTable">
-                <thead>
-                    <tr id="ui-table-head">
-                        <th>Система</th>
-                        <th>Стойност</th>
-                    </tr>
-                </thead>
-                <tbody></tbody>
-            </table>
+        <div id="workspace" style="display: flex; gap: 20px;">
+            <canvas id="mainCanvas" style="border:2px solid #2c3e50; cursor: crosshair;"></canvas>
+            
+            <div id="results-area" style="flex: 1; background: white; border: 1px solid #ddd;">
+                <table id="propsTable" style="width: 100%; border-collapse: collapse;">
+                    <thead>
+                        <tr id="ui-table-head">
+                            <th style="border-bottom: 2px solid #eee; padding: 8px;">Ред</th>
+                            <th style="border-bottom: 2px solid #eee; padding: 8px;">Стойност</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
         </div>
     </main>
 
