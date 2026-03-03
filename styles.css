@@ -87,3 +87,10 @@ th {
     background-color: #f8f9fa;
     font-weight: 600;
 }
+#propsTable tr:hover {
+    background-color: #f5f5f5; /* Подчертава реда, върху който е мишката */
+}
+#propsTable td, #propsTable th {
+    border: 1px solid #ddd;
+    padding: 8px;
+}
