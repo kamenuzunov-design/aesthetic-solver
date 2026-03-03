@@ -1,32 +1,19 @@
 // solver.js
 const AestheticSolver = {
-    // Еквивалент на koren_n(p, q, n1)
-    calcKorenN: (p, q, n1) => Math.exp((p / q) * Math.log(n1)),
-
-    // Логика за генериране на пропорционален ред
-    generateSeries: (baseNum, ratio, direction = 'both') => {
-        let results = [baseNum];
-        let up = baseNum, down = baseNum;
-        
-        for(let i=0; i<10; i++) { // Генерираме 10 стъпки
-            up *= ratio;
-            down /= ratio;
-            results.push(Number(up.toFixed(3)));
-            results.push(Number(down.toFixed(3)));
-        }
-        return results.sort((a, b) => a - b);
-    }
-};
-const AestheticSolver = {
-    // Твоите основни коефициенти
+    // 1. Коригирани специфични коефициенти по твоите изисквания
     ratios: {
-        golden: 1.6180339, // Златно сечение
-        sqrt2: 1.4142135,  // Корен от 2
-        sqrt3: 1.7320508,  // Корен от 3
-        music: 1.0594631   // Корен 12-ти от 2 (музикален полутон)
+        rpch2: 1.059,  // II Ред от Предпочитани Числа
+        rpch3: 1.122,  // III Ред от Предпочитани Числа
+        rpch4: 1.259,  // IV Ред от Предпочитани Числа
+        rzs:   1.272,  // Равнинно Златно Сечение
+        rzv:   1.309,  // Равнинен Златен Вурф
+        zs:    1.618   // Златно сечение
     },
 
-    // Генерира прогресия нагоре и надолу от Nom
+    // 2. Еквивалент на твоята Delphi функция koren_n(p, q, n1)
+    calcKorenN: (p, q, n1) => Math.exp((p / q) * Math.log(n1)),
+
+    // 3. Логика за генериране на пропорционален ред
     generateSeries: (nom, ratio) => {
         let series = [];
         // Нагоре (7 стъпки)
@@ -45,17 +32,24 @@ const AestheticSolver = {
     }
 };
 
+// Функция за бутона "Анализ"
 function calculate() {
-    const nom = parseFloat(document.getElementById('nom').value);
+    const inputField = document.getElementById('baseNum');
+    if (!inputField) return;
+    
+    const nom = parseFloat(inputField.value);
     const tableBody = document.querySelector('#propsTable tbody');
+    if (!tableBody) return;
+    
     tableBody.innerHTML = ''; // Изчистваме старата таблица
 
-    // Използваме Златното сечение като основен пример (можем да добавим и другите)
-    const results = AestheticSolver.generateSeries(nom, AestheticSolver.ratios.golden);
+    // Тук правим анализ по Златното сечение (ЗС) като пример
+    // Можем по-късно да добавим падащо меню за избор на конкретен коефициент
+    const results = AestheticSolver.generateSeries(nom, AestheticSolver.ratios.zs);
 
     results.forEach(item => {
         const row = `<tr>
-            <td>${item.label} (Φ)</td>
+            <td>${item.label} (ЗС 1.618)</td>
             <td><strong>${item.value}</strong></td>
         </tr>`;
         tableBody.innerHTML += row;
@@ -63,12 +57,18 @@ function calculate() {
 
     console.log("Анализът приключи за Nom:", nom);
 }
+
+// 4. Графично управление (Canvas)
 const CanvasManager = {
     ctx: null,
     canvas: null,
 
     init: () => {
         CanvasManager.canvas = document.getElementById('mainCanvas');
+        if (!CanvasManager.canvas) {
+            console.error("Canvas елементът не е намерен!");
+            return;
+        }
         CanvasManager.ctx = CanvasManager.canvas.getContext('2d');
         // Задаваме размер на платното
         CanvasManager.canvas.width = 600;
@@ -90,7 +90,7 @@ const CanvasManager = {
     }
 };
 
-// Модифицираме window.onload в lang.js или тук:
+// Стартиране при зареждане
 window.addEventListener('load', () => {
     CanvasManager.init();
 });
