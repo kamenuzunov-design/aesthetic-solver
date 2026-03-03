@@ -63,3 +63,34 @@ function calculate() {
 
     console.log("Анализът приключи за Nom:", nom);
 }
+const CanvasManager = {
+    ctx: null,
+    canvas: null,
+
+    init: () => {
+        CanvasManager.canvas = document.getElementById('mainCanvas');
+        CanvasManager.ctx = CanvasManager.canvas.getContext('2d');
+        // Задаваме размер на платното
+        CanvasManager.canvas.width = 600;
+        CanvasManager.canvas.height = 400;
+        CanvasManager.drawBackground();
+    },
+
+    drawBackground: () => {
+        const ctx = CanvasManager.ctx;
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, 600, 400);
+        
+        // Помощна мрежа
+        ctx.strokeStyle = "#f0f0f0";
+        for(let i=0; i<600; i+=50) {
+            ctx.beginPath(); ctx.moveTo(i,0); ctx.lineTo(i,400); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(0,i); ctx.lineTo(600,i); ctx.stroke();
+        }
+    }
+};
+
+// Модифицираме window.onload в lang.js или тук:
+window.addEventListener('load', () => {
+    CanvasManager.init();
+});
