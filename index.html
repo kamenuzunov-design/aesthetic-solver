@@ -35,18 +35,10 @@
         
         <div id="workspace" style="display: flex; gap: 20px;">
             <canvas id="mainCanvas" style="border:2px solid #2c3e50; cursor: crosshair;"></canvas>
-            
-            <div id="results-area" style="flex: 1; background: white; border: 1px solid #ddd;">
-                <table id="propsTable" style="width: 100%; border-collapse: collapse;">
-                    <thead>
-                        <tr id="ui-table-head">
-                            <th style="border-bottom: 2px solid #eee; padding: 8px;">Ред</th>
-                            <th style="border-bottom: 2px solid #eee; padding: 8px;">Стойност</th>
-                        </tr>
-                    </thead>
-                    <tbody></tbody>
-                </table>
-            </div>
+                <div id="results-area" style="flex: 1; overflow-x: auto; background: white; border: 1px solid #ccc; max-height: 80vh;">
+                    <table id="propsTable" style="width: 100%; border-collapse: collapse; font-family: monospace; font-size: 13px; text-align: center;">
+                        </table>
+                </div>
         </div>
     </main>
 
