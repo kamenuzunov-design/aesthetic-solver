@@ -1,38 +1,33 @@
 // lang.js
 const translations = {
     bg: {
-        welcome: "Естетически анализатор и софтуер за пропорциониране",
-        labelNom: "Основно число (Nom):",
-        btnCalc: "Анализ",
-        tableHeadRow: "Ред / Коефициент",
-        tableHeadVal: "Стойност",
-        msgConnect: "Системата е готова за работа."
+        title: "Aesthetic Solver",
+        base: "Основно число (Nom):",
+        btn: "Анализ",
+        th1: "Система",
+        th2: "Стойност"
     },
     en: {
-        welcome: "Aesthetic Analyzer and Proportioning Software",
-        labelNom: "Base Number (Nom):",
-        btnCalc: "Analysis",
-        tableHeadRow: "Series / Ratio",
-        tableHeadVal: "Value",
-        msgConnect: "System is ready."
+        title: "Aesthetic Solver",
+        base: "Base Number (Nom):",
+        btn: "Analysis",
+        th1: "System",
+        th2: "Value"
     }
 };
 
 function setLanguage(lang) {
-    document.getElementById('ui-welcome').innerText = translations[lang].welcome;
-    document.getElementById('ui-label-nom').innerText = translations[lang].labelNom;
-    document.getElementById('ui-btn-calc').innerText = translations[lang].btnCalc;
+    document.getElementById('ui-title').innerText = translations[lang].title;
+    document.getElementById('ui-base-num').innerText = translations[lang].base;
+    document.getElementById('ui-calculate').innerText = translations[lang].btn;
     
-    // Обновяване на заглавията на таблицата
     const cells = document.getElementById('ui-table-head').getElementsByTagName('th');
-    cells[0].innerText = translations[lang].tableHeadRow;
-    cells[1].innerText = translations[lang].tableHeadVal;
+    cells[0].innerText = translations[lang].th1;
+    cells[1].innerText = translations[lang].th2;
 
-    // Запазваме избрания език в паметта на браузъра
     localStorage.setItem('preferredLang', lang);
 }
 
-// Изпълнява се при зареждане
 window.onload = () => {
     const savedLang = localStorage.getItem('preferredLang') || 'bg';
     setLanguage(savedLang);
