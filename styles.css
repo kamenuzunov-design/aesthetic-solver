@@ -1,1 +1,89 @@
-styles.css
+body {
+    margin: 0;
+    font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    background-color: #f4f4f9;
+    color: #333;
+}
+
+header {
+    background: #2c3e50;
+    color: white;
+    padding: 1rem 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+}
+
+nav button {
+    background: transparent;
+    border: 1px solid white;
+    color: white;
+    padding: 5px 10px;
+    cursor: pointer;
+    margin-left: 5px;
+    border-radius: 4px;
+}
+
+nav button:hover {
+    background: white;
+    color: #2c3e50;
+}
+
+main {
+    display: flex;
+    flex-direction: column;
+    height: calc(100vh - 70px);
+}
+
+#input-section {
+    padding: 20px;
+    background: white;
+    border-bottom: 1px solid #ddd;
+    text-align: center;
+}
+
+#workspace {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+}
+
+#canvas-container {
+    flex: 2;
+    background: #e0e0e0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-right: 1px solid #ddd;
+}
+
+canvas {
+    background: white;
+    box-shadow: 0 0 20px rgba(0,0,0,0.1);
+    max-width: 95%;
+    max-height: 95%;
+}
+
+#results-panel {
+    flex: 1;
+    background: white;
+    padding: 20px;
+    overflow-y: auto;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+th, td {
+    padding: 10px;
+    border-bottom: 1px solid #eee;
+    text-align: left;
+}
+
+th {
+    background-color: #f8f9fa;
+    font-weight: 600;
+}
