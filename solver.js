@@ -1,4 +1,3 @@
-// solver.js
 const AestheticSolver = {
     // 1. Коригирани специфични коефициенти по твоите изисквания
     ratios: {
