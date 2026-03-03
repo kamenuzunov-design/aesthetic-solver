@@ -34,27 +34,26 @@ const AestheticSolver = {
 // Функция за бутона "Анализ"
 function calculate() {
     const inputField = document.getElementById('baseNum');
-    if (!inputField) return;
+    const selectField = document.getElementById('ratioSelect');
+    const tableBody = document.querySelector('#propsTable tbody');
+    
+    if (!inputField || !tableBody || !selectField) return;
     
     const nom = parseFloat(inputField.value);
-    const tableBody = document.querySelector('#propsTable tbody');
-    if (!tableBody) return;
-    
-    tableBody.innerHTML = ''; // Изчистваме старата таблица
+    const selectedKey = selectField.value; // Вземаме избрания коефициент (напр. 'rpch2')
+    const ratio = AestheticSolver.ratios[selectedKey];
+    const ratioName = selectField.options[selectField.selectedIndex].text;
 
-    // Тук правим анализ по Златното сечение (ЗС) като пример
-    // Можем по-късно да добавим падащо меню за избор на конкретен коефициент
-    const results = AestheticSolver.generateSeries(nom, AestheticSolver.ratios.zs);
+    tableBody.innerHTML = ''; 
+
+    const results = AestheticSolver.generateSeries(nom, ratio);
 
     results.forEach(item => {
-        const row = `<tr>
-            <td>${item.label} (ЗС 1.618)</td>
-            <td><strong>${item.value}</strong></td>
+        tableBody.innerHTML += `<tr>
+            <td style="padding: 5px; border-bottom: 1px solid #eee;">${item.label} (${ratioName})</td>
+            <td style="padding: 5px; border-bottom: 1px solid #eee;"><strong>${item.value}</strong></td>
         </tr>`;
-        tableBody.innerHTML += row;
     });
-
-    console.log("Анализът приключи за Nom:", nom);
 }
 
 // 4. Графично управление (Canvas)
