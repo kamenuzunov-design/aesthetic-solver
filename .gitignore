@@ -1,0 +1,19 @@
+# Системни файлове (Windows и macOS)
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# Настройки на редактори
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# Временни файлове и логове
+*.log
+tmp/
+temp/
+
+# Файлове със пароли/ключове (АКО ИМАШ ТАКИВА - НИКОГА НЕ ГИ КАЧВАЙ)
+.env
+secret.txt
