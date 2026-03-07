@@ -33,43 +33,7 @@
 
 		</div>
 	</header>
-	<nav class="main-menu">
-		<ul>
-			<li class="dropdown">
-				<a href="#" id="ui-tab-num">Числово ПРОПОРЦИОНИРАНЕ</a>
-				<ul class="dropdown-content">
-					<li class="dropdown-submenu">
-						<a href="#" id="ui-task-direct">Права задача</a>
-						<ul class="submenu-content">
-							<li><a href="#" onclick="showSection('nominals')" id="ui-sub-nom">Номинал, минори и мажори</a></li>
-							<li><a href="#" onclick="showSection('analysis')" id="ui-sub-analysis">Анализ на редове от П.Ч.</a></li>
-							<li><a href="#" onclick="showSection('rec-numbers')" id="ui-sub-rec">Препоръчани числа</a></li>
-						</ul>
-					</li>
-					<li class="dropdown-submenu">
-						<a href="#" id="ui-task-inverse">Обратна задача</a>
-						<ul class="submenu-content">
-							<li><a href="#" onclick="uiInputNumbers()" id="ui-sub-input">Въвеждане ред от числа</a></li>
-							<li><a href="#" onclick="uiReadFile()" id="ui-sub-file">Прочети числа от файл</a></li>
-						</ul>
-					</li>
-				</ul>
-			</li>
-
-			<li class="dropdown">
-				<a href="#" id="ui-tab-graph">Геометрично ПРОПОРЦИОНИРАНЕ</a>
-				<ul class="dropdown-content">
-					<li><a href="#" onclick="geoNew()" id="ui-geo-new">Нов файл (векторен)</a></li>
-					<li><a href="#" onclick="geoOpen()" id="ui-geo-open">Отваряне на графичен файл</a></li>
-					<li><a href="#" onclick="geoSave()" id="ui-geo-save">Запис (споделяне) на графичен файл</a></li>
-				</ul>
-			</li>
-
-			<li><a href="#" onclick="showSection('about')" id="ui-tab-about">За ПРИЛОЖЕНИЕТО</a></li>
-
-			<li><a href="#" onclick="showSection('help')" id="ui-tab-help">ПОМОЩ</a></li>
-		</ul>
-	</nav>
+	
     <main style="display: flex; flex-direction: column; padding: 20px; gap: 20px;">
         <div class="input-panel" style="background: #eee; padding: 15px; border-radius: 8px;">
             <label id="ui-label-nom">Nom:</label>
