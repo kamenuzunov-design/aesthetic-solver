@@ -21,7 +21,7 @@ const AestheticSolver = {
         const MAX = 1000;
 
         // Ред 31 (Индекс 30): Използваме преведеното име от интерфейса
-        col[30] = `${displayName} (${ratio})`;
+        col[30] = `${displayName};
         // Ред 32 (Индекс 31): Стойност на Номинала
         col[31] = nom;
 
