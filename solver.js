@@ -131,5 +131,4 @@ const CanvasManager = {
 
 window.addEventListener('load', () => {
     CanvasManager.init();
-    calculate();
 });
