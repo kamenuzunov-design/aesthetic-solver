@@ -1,13 +1,13 @@
 const translations = {
     bg: {
-        title: "Aesthetic Solver",
-        base: "Основно число (Nom):",
+        title: "Естетически калкулатор",
+        base: "Номинал:",
         btn: "Анализ",
         thLabel: "№"
     },
     en: {
         title: "Aesthetic Solver",
-        base: "Base Number (Nom):",
+        base: "Base Number(Nom):",
         btn: "Analysis",
         thLabel: "№"
     }
