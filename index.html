@@ -42,6 +42,43 @@
     </nav>
 
     <main style="padding: 20px;">
-        
-        <div id="ui-panel-control" style="display: none; background: #eeeeee; padding: 20px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #cccccc; display: flex; gap: 15px; align-items: center;">
-            <label id="ui-label-nom" style="font
+        <div id="ui-panel-control" style="display: none; background: #eeeeee; padding: 20px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #cccccc; gap: 15px; align-items: center;">
+            <label id="ui-label-nom" style="font-weight: bold;">Nom:</label>
+            <input type="number" id="baseNum" value="200" style="width: 80px; padding: 5px;">
+            
+            <label id="ui-label-system" style="font-weight: bold;">Система:</label>
+            <select id="ratioSelect" style="padding: 5px;">
+                <option id="opt-rpch2" value="rpch2">II РПЧ (1.059)</option>
+                <option id="opt-rpch3" value="rpch3" selected>III РПЧ (1.122)</option>
+                <option id="opt-rpch4" value="rpch4">IV РПЧ (1.259)</option>
+                <option id="opt-rzs" value="rzs">РЗС (1.272)</option>
+                <option id="opt-rzv" value="rzv">РЗВ (1.309)</option>
+                <option id="opt-zs" value="zs">ЗС (1.618)</option>
+            </select>
+            
+            <button id="ui-calculate" onclick="calculate()" style="padding: 6px 15px; cursor: pointer; background-color: #2d3d4c; color: white; border: none; border-radius: 4px;">Анализ</button>
+        </div>
+
+        <div id="workspace">
+            <div id="results-area" style="background: white; border: 1px solid #ccc; overflow-x: auto;">
+                <table id="propsTable" style="width: 100%; border-collapse: collapse; text-align: center;"></table>
+            </div>
+        </div>
+    </main>
+
+    <script src="lang.js"></script>
+    <script src="solver.js"></script>
+    <script>
+        function showSection(section) {
+            const panel = document.getElementById('ui-panel-control');
+            if (section === 'nominals') {
+                if (panel.style.display === 'none' || panel.style.display === '') {
+                    panel.style.display = 'flex';
+                } else {
+                    panel.style.display = 'none';
+                }
+            }
+        }
+    </script>
+</body>
+</html>

@@ -8,7 +8,7 @@ async function setLanguage(langCode) {
         const data = await response.json();
         window.currentLangData = data; 
 
-        // Обновяваме всички статични елементи (Title, Labels, Buttons)
+        // Обновяване на всички текстове по ID
         Object.keys(data).forEach(key => {
             const element = document.getElementById(key);
             if (element) {
@@ -18,16 +18,17 @@ async function setLanguage(langCode) {
 
         localStorage.setItem('preferredLang', langCode);
 
-        // ЕДВА СЕГА викаме calculate, когато езикът е зареден в window.currentLangData
+        // Веднага извикваме изчисленията, за да се обнови таблицата
         if (typeof calculate === "function") {
             calculate();
         }
+
     } catch (error) {
         console.error("Грешка при локализацията:", error);
     }
 }
 
-// Изпълнява се веднага при зареждане
+// Зареждане при стартиране
 document.addEventListener('DOMContentLoaded', () => {
     const savedLang = localStorage.getItem('preferredLang') || 'bg';
     setLanguage(savedLang);
