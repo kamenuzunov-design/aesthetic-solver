@@ -55,29 +55,40 @@ function calculate() {
 
     const nom = parseFloat(inputField.value);
     
-    let html = '<thead><tr><th style="border: 1px solid #ccc; padding: 5px;">№</th>';
+    // Вземаме данните от езиковия файл (ако ги няма - ползваме резервни)
+    const lang = window.currentLangData || {};
+    const txtNo = lang["th-no"] || "№";
+    const txtP = lang["row-p"] || "P"; // Например "Пропорция"
+    const txtN = lang["row-n"] || "N"; // Например "Номинал"
+
+    // Генерираме заглавията (7 колони: № + 6-те системи)
+    // Използваме txtNo за първата колона
+    let html = `<thead><tr><th style="border: 1px solid #ccc; padding: 5px;">${txtNo}</th>`;
+    
     AestheticSolver.ratios.forEach((r, idx) => {
+        // Оставяме имената на системите (ЗС, РПЧ), те са международни термини
         html += `<th onclick="runHarmonyAnalysis(${idx})" style="border: 1px solid #ccc; padding: 5px; cursor: pointer; background: #f0f0f0;" title="Кликни за сравнителен анализ">${r.name}<br>(${r.val})</th>`;
     });
     html += '</tr></thead><tbody>';
 
-    // Генерираме данните (подаваме и r.name)
+    // Генерираме данните (тук подаваме и r.name за ред "P")
     currentMatrix = AestheticSolver.ratios.map(r => AestheticSolver.generateColumn(nom, r.val, r.name));
 
     for (let i = 0; i < 62; i++) {
+        // Оцветяване на ред 31 и 32 в 20% сиво
         let rowStyle = (i === 30 || i === 31) ? 'style="background-color: #D3D3D3; font-weight: bold;"' : '';
         
         let rowLabel = "";
         if (i < 30) rowLabel = `m${30 - i}`;      
-        else if (i === 30) rowLabel = "P";        
-        else if (i === 31) rowLabel = "N";        
+        else if (i === 30) rowLabel = txtP;  // ВЕЧЕ Е ДИНАМИЧНО (от JSON)
+        else if (i === 31) rowLabel = txtN;  // ВЕЧЕ Е ДИНАМИЧНО (от JSON)
         else rowLabel = `M${i - 31}`;             
         
         html += `<tr ${rowStyle}><td style="border: 1px solid #eee; padding: 3px; font-weight: bold;">${rowLabel}</td>`;
         
         for (let j = 0; j < currentMatrix.length; j++) {
             let val = currentMatrix[j][i] || "";
-            // Слагаме ID на всяка клетка, за да можем да я оцветяваме
+            // Слагаме ID на всяка клетка, за да работи runHarmonyAnalysis
             html += `<td id="cell-${j}-${i}" style="border: 1px solid #eee; padding: 3px;">${val}</td>`;
         }
         html += '</tr>';
