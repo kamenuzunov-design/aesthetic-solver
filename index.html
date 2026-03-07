@@ -33,33 +33,64 @@
 
 		</div>
 	</header>
-	
-    <main style="display: flex; flex-direction: column; padding: 20px; gap: 20px;">
-        <div class="input-panel" style="background: #eee; padding: 15px; border-radius: 8px;">
-            <label id="ui-label-nom">Nom:</label>
-            <input type="number" id="baseNum" value="200" style="width: 80px;">
-            
-            <label id="ui-label-system">Система:</label>
-            <select id="ratioSelect">
-                <option id="opt-rpch2" value="rpch2">II РПЧ (1.059)</option>
-                <option id="opt-rpch3" value="rpch3" selected>III РПЧ (1.122)</option>
-                <option id="opt-rpch4" value="rpch4">IV РПЧ (1.259)</option>
-                <option id="opt-rzs" value="rzs">РЗС (1.272)</option>
-                <option id="opt-rzv" value="rzv">РЗВ (1.309)</option>
-                <option id="opt-zs" value="zs">ЗС (1.618)</option>
-            </select>
-            
-            <button id="ui-calculate" onclick="calculate()">Анализ</button>
-        </div>
+		<nav class="main-menu">
+			<ul>
+				<li class="dropdown">
+					<a href="#" id="ui-tab-num">Числово ПРОПОРЦИОНИРАНЕ</a>
+					<ul class="dropdown-content">
+						<li class="dropdown-submenu">
+							<a href="#" id="ui-task-direct">Права задача</a>
+							<ul class="submenu-content">
+								<li><a href="#" onclick="showSection('nominals')" id="ui-sub-nom">Номинал, минори и мажори</a></li>
+								<li><a href="#" onclick="showSection('analysis')" id="ui-sub-analysis">Анализ на редове от П.Ч.</a></li>
+								<li><a href="#" onclick="showSection('rec-numbers')" id="ui-sub-rec">Препоръчани числа</a></li>
+							</ul>
+						</li>
+						<li class="dropdown-submenu">
+							<a href="#" id="ui-task-inverse">Обратна задача</a>
+							<ul class="submenu-content">
+								<li><a href="#" onclick="uiInputNumbers()" id="ui-sub-input">Въвеждане ред от числа</a></li>
+								<li><a href="#" onclick="uiReadFile()" id="ui-sub-file">Прочети числа от файл</a></li>
+							</ul>
+						</li>
+					</ul>
+				</li>
 
-        <div id="workspace" style="display: flex; flex-direction: column; gap: 20px;">
-            <canvas id="mainCanvas" style="display: none; border:2px solid #2c3e50;"></canvas>
-            
-            <div id="results-area" style="overflow-x: auto; background: white; border: 1px solid #ccc; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
-                <table id="propsTable" style="width: 100%; border-collapse: collapse; font-family: 'Courier New', monospace; font-size: 14px; text-align: center;">
-                    </table>
-            </div>
-        </div> </main>
+				<li class="dropdown">
+					<a href="#" id="ui-tab-graph">Геометрично ПРОПОРЦИОНИРАНЕ</a>
+					<ul class="dropdown-content">
+						<li><a href="#" onclick="geoNew()" id="ui-geo-new">Нов файл (векторен)</a></li>
+						<li><a href="#" onclick="geoOpen()" id="ui-geo-open">Отваряне на графичен файл</a></li>
+						<li><a href="#" onclick="geoSave()" id="ui-geo-save">Запис (споделяне) на графичен файл</a></li>
+					</ul>
+				</li>
+
+				<li><a href="#" onclick="showSection('about')" id="ui-tab-about">За ПРИЛОЖЕНИЕТО</a></li>
+
+				<li><a href="#" onclick="showSection('help')" id="ui-tab-help">ПОМОЩ</a></li>
+			</ul>
+		</nav>
+		<main style="display: flex; flex-direction: column; padding: 20px; gap: 20px;">
+			
+			<div id="ui-panel-control" class="input-panel" style="display: none; background: #eee; padding: 15px; border-radius: 8px;">
+				<label id="ui-label-nom">Nom:</label>
+				<input type="number" id="baseNum" value="200" style="width: 80px;">
+				
+				<label id="ui-label-system">Система:</label>
+				<select id="ratioSelect">
+					<option id="opt-rpch2" value="rpch2">II РПЧ (1.059)</option>
+					</select>
+				
+				<button id="ui-calculate" onclick="calculate()">Анализ</button>
+			</div>
+
+			<div id="workspace">
+				<div id="results-area" style="overflow-x: auto; background: white; border: 1px solid #ccc;">
+					<table id="propsTable" style="width: 100%; border-collapse: collapse; text-align: center;">
+						</table>
+				</div>
+			</div>
+		</main>
 
     <script src="lang.js"></script>
     <script src="solver.js"></script>
