@@ -94,11 +94,13 @@ th {
     border: 1px solid #ddd;
     padding: 8px;
 }
+
 /* --- ГЛАВНО МЕНЮ --- */
 .main-menu {
     background-color: #3e4f5f;
     position: relative;
     z-index: 1000;
+    width: 100%;
 }
 
 .main-menu ul {
@@ -109,73 +111,56 @@ th {
 }
 
 .main-menu li {
-    position: relative;
+    position: relative; /* Важно за позиционирането на подменютата */
 }
 
 .main-menu a {
     display: block;
     padding: 12px 20px;
-    color: white;
+    color: white !important;
     text-decoration: none;
     font-size: 14px;
     white-space: nowrap;
 }
 
-.main-menu a:hover {
-    background-color: #4e5f6f;
-}
-
-/* СКРИВАНЕ на подменютата */
-.dropdown-content, .submenu-content {
-    display: none; 
+/* --- ПЪРВО НИВО ПОДМЕНЮ (Dropdown) --- */
+.dropdown-content {
+    display: none;
     position: absolute;
-    background-color: #2d3d4c; /* Тъмен фон като хедъра */
+    top: 100%; /* Веднага под главния елемент */
+    left: 0;
+    background-color: #2d3d4c;
     min-width: 250px;
     box-shadow: 0 8px 16px rgba(0,0,0,0.3);
-    border-radius: 0 0 4px 4px;
 }
 
-/* Показване при hover */
+/* --- ВТОРО НИВО ПОДМЕНЮ (Submenu) --- */
+.submenu-content {
+    display: none;
+    position: absolute;
+    top: 0;
+    left: 100%; /* Избутва "Права задача" надясно */
+    background-color: #3e4f5f; /* Малко по-различен цвят за ориентация */
+    min-width: 250px;
+    box-shadow: 0 8px 16px rgba(0,0,0,0.3);
+}
+
+/* ЛОГИКА ЗА ПОКАЗВАНЕ */
 .dropdown:hover > .dropdown-content {
     display: block;
 }
 
 .dropdown-submenu:hover > .submenu-content {
     display: block;
-    left: 100%;
-    top: 0;
 }
 
-/* Текстът в подменютата да е БЯЛ */
-.dropdown-content a, .submenu-content a {
-    color: white;
-    border-bottom: 1px solid rgba(255,255,255,0.1);
-}
-
-.dropdown-content a:hover, .submenu-content a:hover {
+/* Ховър ефект върху линковете */
+.main-menu a:hover {
     background-color: #4e5f6f;
 }
 
-/* --- КОРЕКЦИЯ НА ТАБЛИЦАТА И СТРУКТУРАТА --- */
-main {
-    display: block; /* Сменяме от flex на block за сигурност */
-    padding: 20px;
-}
-
-#workspace {
-    width: 100%;
-    margin-top: 10px;
-}
-
-#results-area {
-    width: 100%;
-    background: white;
-    border: 1px solid #ccc;
-    overflow-x: auto;
-}
-
-table#propsTable {
-    width: 100%;
-    border-collapse: collapse;
-    background-color: white;
+/* Стрелки за индикация (опционално) */
+.dropdown-submenu > a::after {
+    content: " »";
+    float: right;
 }
