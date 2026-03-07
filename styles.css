@@ -96,71 +96,32 @@ th {
 }
 
 /* --- ГЛАВНО МЕНЮ --- */
+
 .main-menu {
     background-color: #3e4f5f;
-    position: relative;
-    z-index: 1000;
-    width: 100%;
 }
-
 .main-menu ul {
     list-style: none;
     margin: 0;
     padding: 0;
     display: flex;
 }
-
-.main-menu li {
-    position: relative; /* Важно за позиционирането на подменютата */
-}
-
 .main-menu a {
     display: block;
-    padding: 12px 20px;
-    color: white !important;
+    padding: 15px 25px;
+    color: white;
     text-decoration: none;
     font-size: 14px;
-    white-space: nowrap;
+    font-weight: bold;
 }
-
-/* --- ПЪРВО НИВО ПОДМЕНЮ (Dropdown) --- */
-.dropdown-content {
-    display: none;
-    position: absolute;
-    top: 100%; /* Веднага под главния елемент */
-    left: 0;
-    background-color: #2d3d4c;
-    min-width: 250px;
-    box-shadow: 0 8px 16px rgba(0,0,0,0.3);
-}
-
-/* --- ВТОРО НИВО ПОДМЕНЮ (Submenu) --- */
-.submenu-content {
-    display: none;
-    position: absolute;
-    top: 0;
-    left: 100%; /* Избутва "Права задача" надясно */
-    background-color: #3e4f5f; /* Малко по-различен цвят за ориентация */
-    min-width: 250px;
-    box-shadow: 0 8px 16px rgba(0,0,0,0.3);
-}
-
-/* ЛОГИКА ЗА ПОКАЗВАНЕ */
-.dropdown:hover > .dropdown-content {
-    display: block;
-}
-
-.dropdown-submenu:hover > .submenu-content {
-    display: block;
-}
-
-/* Ховър ефект върху линковете */
 .main-menu a:hover {
     background-color: #4e5f6f;
 }
-
-/* Стрелки за индикация (опционално) */
-.dropdown-submenu > a::after {
-    content: " »";
-    float: right;
+main {
+    padding: 20px;
+}
+#propsTable th, #propsTable td {
+    border: 1px solid #ddd;
+    padding: 8px;
+    font-family: monospace;
 }
