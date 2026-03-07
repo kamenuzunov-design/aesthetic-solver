@@ -4,95 +4,95 @@
     <meta charset="UTF-8">
     <title>Aesthetic Solver</title>
     <link rel="stylesheet" href="styles.css">
-	<link rel="icon" type="image/png" href="images/favicon.png">
-	<link rel="apple-touch-icon" href="images/favicon.png">
+    <link rel="icon" type="image/png" href="images/favicon.png">
+    <link rel="apple-touch-icon" href="images/favicon.png">
 </head>
 <body>
-	<header style="display: flex; justify-content: space-between; align-items: center; padding: 20px 30px; background-color: #2d3d4c; border-bottom: 3px solid #1a252f;">
-		
-		<div style="display: flex; flex-direction: column; align-items: flex-start;">
-			<img src="images/logo.png" alt="Logo" style="width: 243px; height: 100px; margin-bottom: 5px;">
-			<h2 id="ui-title" style="margin: 0; font-family: Arial, sans-serif; color: #ffffff; letter-spacing: 1px;">Aesthetic Solver</h2>
-		</div>
+    <header style="display: flex; justify-content: space-between; align-items: center; padding: 20px 30px; background-color: #2d3d4c; border-bottom: 3px solid #1a252f;">
+        <div style="display: flex; flex-direction: column; align-items: flex-start;">
+            <img src="images/logo.png" alt="Logo" style="width: 243px; height: 100px; margin-bottom: 5px;">
+            <h2 id="ui-title" style="margin: 0; font-family: Arial, sans-serif; color: #ffffff; letter-spacing: 1px;">Aesthetic Solver</h2>
+        </div>
 
-		<div class="controls" style="display: flex; gap: 25px;">
-			
-			<div style="display: flex; flex-direction: column; align-items: center; gap: 8px;">
-				<img src="images/bg_flag.png" alt="BG" 
-					 style="width: 45px; height: 45px; cursor: pointer; border: 2px solid #ffffff; border-radius: 50%; box-shadow: 0 2px 5px rgba(0,0,0,0.2);" 
-					 onclick="setLanguage('bg')">
-				<button onclick="setLanguage('bg')" style="cursor: pointer; background: rgba(255,255,255,0.1); border: 1px solid #ffffff; border-radius: 4px; padding: 2px 10px; font-size: 12px; color: #ffffff;">БГ</button>
-			</div>
+        <div class="controls" style="display: flex; gap: 25px;">
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 8px;">
+                <img src="images/bg_flag.png" alt="BG" style="width: 45px; height: 45px; cursor: pointer; border: 2px solid #ffffff; border-radius: 50%;" onclick="setLanguage('bg')">
+                <button onclick="setLanguage('bg')" style="cursor: pointer; background: rgba(255,255,255,0.1); border: 1px solid #ffffff; border-radius: 4px; padding: 2px 10px; font-size: 12px; color: #ffffff;">БГ</button>
+            </div>
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 8px;">
+                <img src="images/eng_flag.png" alt="EN" style="width: 45px; height: 45px; cursor: pointer; border: 2px solid #ffffff; border-radius: 50%;" onclick="setLanguage('en')">
+                <button onclick="setLanguage('en')" style="cursor: pointer; background: rgba(255,255,255,0.1); border: 1px solid #ffffff; border-radius: 4px; padding: 2px 10px; font-size: 12px; color: #ffffff;">EN</button>
+            </div>
+        </div>
+    </header>
 
-			<div style="display: flex; flex-direction: column; align-items: center; gap: 8px;">
-				<img src="images/eng_flag.png" alt="EN" 
-					 style="width: 45px; height: 45px; cursor: pointer; border: 2px solid #ffffff; border-radius: 50%; box-shadow: 0 2px 5px rgba(0,0,0,0.2);" 
-					 onclick="setLanguage('en')">
-				<button onclick="setLanguage('en')" style="cursor: pointer; background: rgba(255,255,255,0.1); border: 1px solid #ffffff; border-radius: 4px; padding: 2px 10px; font-size: 12px; color: #ffffff;">EN</button>
-			</div>
+    <nav class="main-menu">
+        <ul>
+            <li class="dropdown">
+                <a href="#" id="ui-tab-num">Числово ПРОПОРЦИОНИРАНЕ</a>
+                <ul class="dropdown-content">
+                    <li class="dropdown-submenu">
+                        <a href="#" id="ui-task-direct">Права задача</a>
+                        <ul class="submenu-content">
+                            <li><a href="#" onclick="showSection('nominals')" id="ui-sub-nom">Номинал, минори и мажори</a></li>
+                            <li><a href="#" id="ui-sub-analysis">Анализ на редове от П.Ч.</a></li>
+                            <li><a href="#" id="ui-sub-rec">Препоръчани числа</a></li>
+                        </ul>
+                    </li>
+                    <li class="dropdown-submenu">
+                        <a href="#" id="ui-task-inverse">Обратна задача</a>
+                        <ul class="submenu-content">
+                            <li><a href="#" id="ui-sub-input">Въвеждане ред от числа</a></li>
+                            <li><a href="#" id="ui-sub-file">Прочети числа от файл</a></li>
+                        </ul>
+                    </li>
+                </ul>
+            </li>
+            <li class="dropdown">
+                <a href="#" id="ui-tab-graph">Геометрично ПРОПОРЦИОНИРАНЕ</a>
+                <ul class="dropdown-content">
+                    <li><a href="#" id="ui-geo-new">Нов файл (векторен)</a></li>
+                    <li><a href="#" id="ui-geo-open">Отваряне на графичен файл</a></li>
+                    <li><a href="#" id="ui-geo-save">Запис (споделяне) на графичен файл</a></li>
+                </ul>
+            </li>
+            <li><a href="#" id="ui-tab-about">За ПРИЛОЖЕНИЕТО</a></li>
+            <li><a href="#" id="ui-tab-help">ПОМОЩ</a></li>
+        </ul>
+    </nav>
 
-		</div>
-	</header>
-		<nav class="main-menu">
-			<ul>
-				<li class="dropdown">
-					<a href="#" id="ui-tab-num">Числово ПРОПОРЦИОНИРАНЕ</a>
-					<ul class="dropdown-content">
-						<li class="dropdown-submenu">
-							<a href="#" id="ui-task-direct">Права задача</a>
-							<ul class="submenu-content">
-								<li><a href="#" onclick="showSection('nominals')" id="ui-sub-nom">Номинал, минори и мажори</a></li>
-								<li><a href="#" onclick="showSection('analysis')" id="ui-sub-analysis">Анализ на редове от П.Ч.</a></li>
-								<li><a href="#" onclick="showSection('rec-numbers')" id="ui-sub-rec">Препоръчани числа</a></li>
-							</ul>
-						</li>
-						<li class="dropdown-submenu">
-							<a href="#" id="ui-task-inverse">Обратна задача</a>
-							<ul class="submenu-content">
-								<li><a href="#" onclick="uiInputNumbers()" id="ui-sub-input">Въвеждане ред от числа</a></li>
-								<li><a href="#" onclick="uiReadFile()" id="ui-sub-file">Прочети числа от файл</a></li>
-							</ul>
-						</li>
-					</ul>
-				</li>
+    <main>
+        <div id="ui-panel-control" class="input-panel" style="display: none; background: #eee; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+            <label id="ui-label-nom">Nom:</label>
+            <input type="number" id="baseNum" value="200" style="width: 80px;">
+            <label id="ui-label-system">Система:</label>
+            <select id="ratioSelect">
+                <option id="opt-rpch2" value="rpch2">II РПЧ (1.059)</option>
+                <option id="opt-rpch3" value="rpch3" selected>III РПЧ (1.122)</option>
+                <option id="opt-rpch4" value="rpch4">IV РПЧ (1.259)</option>
+                <option id="opt-rzs" value="rzs">РЗС (1.272)</option>
+                <option id="opt-rzv" value="rzv">РЗВ (1.309)</option>
+                <option id="opt-zs" value="zs">ЗС (1.618)</option>
+            </select>
+            <button id="ui-calculate" onclick="calculate()">Анализ</button>
+        </div>
 
-				<li class="dropdown">
-					<a href="#" id="ui-tab-graph">Геометрично ПРОПОРЦИОНИРАНЕ</a>
-					<ul class="dropdown-content">
-						<li><a href="#" onclick="geoNew()" id="ui-geo-new">Нов файл (векторен)</a></li>
-						<li><a href="#" onclick="geoOpen()" id="ui-geo-open">Отваряне на графичен файл</a></li>
-						<li><a href="#" onclick="geoSave()" id="ui-geo-save">Запис (споделяне) на графичен файл</a></li>
-					</ul>
-				</li>
-
-				<li><a href="#" onclick="showSection('about')" id="ui-tab-about">За ПРИЛОЖЕНИЕТО</a></li>
-
-				<li><a href="#" onclick="showSection('help')" id="ui-tab-help">ПОМОЩ</a></li>
-			</ul>
-		</nav>
-		<main style="display: flex; flex-direction: column; padding: 20px; gap: 20px;">
-			
-			<div id="ui-panel-control" class="input-panel" style="display: none; background: #eee; padding: 15px; border-radius: 8px;">
-				<label id="ui-label-nom">Nom:</label>
-				<input type="number" id="baseNum" value="200" style="width: 80px;">
-				
-				<label id="ui-label-system">Система:</label>
-				<select id="ratioSelect">
-					<option id="opt-rpch2" value="rpch2">II РПЧ (1.059)</option>
-					</select>
-				
-				<button id="ui-calculate" onclick="calculate()">Анализ</button>
-			</div>
-
-			<div id="workspace">
-				<div id="results-area" style="overflow-x: auto; background: white; border: 1px solid #ccc;">
-					<table id="propsTable" style="width: 100%; border-collapse: collapse; text-align: center;">
-						</table>
-				</div>
-			</div>
-		</main>
+        <div id="workspace">
+            <div id="results-area">
+                <table id="propsTable"></table>
+            </div>
+        </div>
+    </main>
 
     <script src="lang.js"></script>
     <script src="solver.js"></script>
+    <script>
+        function showSection(section) {
+            if (section === 'nominals') {
+                const panel = document.getElementById('ui-panel-control');
+                panel.style.display = (panel.style.display === 'none') ? 'block' : 'none';
+            }
+        }
+    </script>
 </body>
 </html>
