@@ -94,3 +94,58 @@ th {
     border: 1px solid #ddd;
     padding: 8px;
 }
+.main-menu {
+    background-color: #3e4f5f; /* Малко по-светло от хедъра */
+    color: white;
+    font-family: Arial, sans-serif;
+}
+
+.main-menu ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+}
+
+.main-menu li {
+    position: relative;
+}
+
+.main-menu a {
+    display: block;
+    padding: 12px 20px;
+    color: white;
+    text-decoration: none;
+    font-size: 14px;
+}
+
+.main-menu a:hover {
+    background-color: #4e5f6f;
+}
+
+/* Dropdown нива */
+.dropdown-content, .submenu-content {
+    display: none;
+    position: absolute;
+    background-color: #ffffff;
+    min-width: 220px;
+    box-shadow: 0 8px 16px rgba(0,0,0,0.2);
+    z-index: 100;
+}
+
+.dropdown-content a, .submenu-content a {
+    color: #333;
+    border-bottom: 1px solid #eee;
+}
+
+.dropdown-content a:hover, .submenu-content a:hover {
+    background-color: #f1f1f1;
+}
+
+/* Показване при hover */
+.dropdown:hover > .dropdown-content { display: block; }
+.dropdown-submenu:hover > .submenu-content {
+    display: block;
+    left: 100%; /* Показва под-под менюто вдясно */
+    top: 0;
+}

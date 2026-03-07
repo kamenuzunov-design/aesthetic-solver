@@ -12,5 +12,13 @@
   "opt-zs": "1.618",
   "th-no": "No.",
   "row-p": "Proportion",
-  "row-n": "Nominal"
+  "row-n": "Nominal""ui-tab-num": "Numerical PROPORTION",
+  "ui-task-direct": "Direct task",
+  "ui-sub-nom": "Nominal, minors and majors",
+  "ui-sub-analysis": "Analysis of series of P.C.",
+  "ui-sub-rec": "Recommended numbers",
+  "ui-task-inverse": "Inverse task",
+  "ui-tab-graph": "Geometric PROPORTION",
+  "ui-tab-about": "About the APP",
+  "ui-tab-help": "HELP"
 }
