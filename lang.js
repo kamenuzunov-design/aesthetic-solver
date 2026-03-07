@@ -1,13 +1,15 @@
+// Глобална променлива, която ще пази текущия превод
+window.currentLangData = {};
+
 async function setLanguage(langCode) {
     try {
-        // Указваме пътя до папка lang/
         const response = await fetch(`lang/${langCode}.json`);
-        
-        if (!response.ok) throw new Error(`Неуспешно зареждане на: ${langCode}.json`);
-        
+        if (!response.ok) throw new Error(`Неуспешно зареждане`);
         const data = await response.json();
+        
+        // Запазваме данните глобално
+        window.currentLangData = data;
 
-        // Обновяваме основните елементи
         const elements = {
             'ui-title': data.title,
             'ui-label-nom': data.label_nomin,
@@ -24,12 +26,10 @@ async function setLanguage(langCode) {
 
         localStorage.setItem('preferredLang', langCode);
         
-        // Обновяваме таблицата, за да се сменят заглавията (ако функцията съществува)
-        if (typeof calculate === "function") {
-            calculate();
-        }
+        // Преизчисляваме таблицата, за да се сменят текстовете вътре в нея
+        if (typeof calculate === "function") calculate();
 
     } catch (error) {
-        console.error("Грешка при зареждане на езика:", error);
+        console.error("Грешка:", error);
     }
 }
