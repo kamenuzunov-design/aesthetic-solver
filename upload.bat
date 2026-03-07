@@ -1,21 +1,18 @@
 @echo off
-echo Proverka za novi promeni v servera...
+chcp 65001 >nul
+
+echo --- 1. Aktualizacia na GitHub ---
 git pull
-
-@echo off
-echo --- Zapochvam kachvaneto v GitHub ---
-
-:: 1. Dobavyane na promhenite
 git add .
-
-:: 2. Commit s tekushtata data i chas (avtomatichno)
-git commit -m "Auto-upload: %date% %time%"
-
-:: 3. Izprashtane kum servera
+git commit -m "Auto-update: %date% %time%"
 git push
 
-echo
-echo --- -------- ---
-echo ---  It's OK ---
-echo --- -------- ---
+echo.
+echo --- 2. Deployment vav Firebase ---
+:: Използваме директния път до командата
+call firebase deploy --only hosting
+
+echo.
+echo.
+echo --- It's OK ---
 pause
