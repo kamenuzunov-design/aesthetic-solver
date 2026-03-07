@@ -1,12 +1,12 @@
 {
-  "lang": "English",
-  "flag": "images/en_flag.png",
-  "title": "Aesthetic Solver",
-  "tab_about": "About APP",
-  "tab_num_calc": "Numerical PROPORTIONING",
-  "tab_graph_calc": "Graphical PROPORTIONING",
-  "label_nomin": "Nominal:",
-  "btn_als": "Analysis",
-  "th_no": "№",
-  "th_val": "Value"
+  "lang-name": "English",
+  "ui-title": "Aesthetic Solver",
+  "ui-tab-about": "About APP",
+  "ui-tab-num": "Numerical PROPORTIONING",
+  "ui-tab-graph": "Graphical PROPORTIONING",
+  "ui-label-nom": "Nominal:",
+  "ui-btn-calc": "Analysis",
+  "th-no": "№",
+  "row-p": "Prportion",
+  "row-n": "Nominal"
 }
