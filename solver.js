@@ -65,10 +65,13 @@ function calculate() {
     // Използваме txtNo за първата колона
     let html = `<thead><tr><th style="border: 1px solid #ccc; padding: 5px;">${txtNo}</th>`;
     
-    AestheticSolver.ratios.forEach((r, idx) => {
-        // Оставяме имената на системите (ЗС, РПЧ), те са международни термини
-        html += `<th onclick="runHarmonyAnalysis(${idx})" style="border: 1px solid #ccc; padding: 5px; cursor: pointer; background: #f0f0f0;" title="Кликни за сравнителен анализ">${r.name}<br>(${r.val})</th>`;
-    });
+	AestheticSolver.ratios.forEach((r, idx) => {
+		// Вземаме актуалния текст от селектора (който вече е преведен от lang.js)
+		const optEl = document.getElementById(`opt-${r.id_key}`); 
+		const displayName = optEl ? optEl.innerText : r.name;
+		
+		html += `<th onclick="runHarmonyAnalysis(${idx})" style="cursor:pointer; background:#f0f0f0; border:1px solid #ccc; padding: 10px;">${displayName}</th>`;
+	});
     html += '</tr></thead><tbody>';
 
     // Генерираме данните (тук подаваме и r.name за ред "P")

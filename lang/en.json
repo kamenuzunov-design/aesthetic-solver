@@ -1,12 +1,16 @@
 {
   "lang-name": "English",
-  "ui-title": "Aesthetic Solver",
-  "ui-tab-about": "About APP",
-  "ui-tab-num": "Numerical PROPORTIONING",
-  "ui-tab-graph": "Graphical PROPORTIONING",
+  "ui-title": "Aesthetic Proportioning",
   "ui-label-nom": "Nominal:",
-  "ui-btn-calc": "Analysis",
-  "th-no": "№",
-  "row-p": "Prportion",
+  "ui-label-system": "System:",
+  "ui-calculate": "Analysis",
+  "opt-rpch2": "II SPR (1.059)",
+  "opt-rpch3": "III SPR (1.122)",
+  "opt-rpch4": "IV SPR (1.259)",
+  "opt-rzs": "GSA (1.272)",
+  "opt-rzv": "GSV (1.309)",
+  "opt-zs": "GS (1.618)",
+  "th-no": "No.",
+  "row-p": "Proportion",
   "row-n": "Nominal"
 }
