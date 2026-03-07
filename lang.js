@@ -1,6 +1,6 @@
 const translations = {
     bg: {
-        title: "Естетически калкулатор",
+        title: "Естетическо пропорциониране",
         base: "Номинал:",
         btn: "Анализ",
         thLabel: "№"
