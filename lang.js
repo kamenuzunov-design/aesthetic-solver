@@ -1,29 +1,34 @@
-window.currentLangData = {}; // Глобален обект, достъпен за solver.js
+window.currentLangData = {}; 
 
 async function setLanguage(langCode) {
     try {
-        const response = await fetch(`lang/${langCode}.json`);
+        const response = await fetch(`lang/${langCode}.json?v=${new Date().getTime()}`);
         if (!response.ok) throw new Error(`Файлът ${langCode}.json не е намерен`);
         
         const data = await response.json();
-        window.currentLangData = data; // Запазваме данните
+        window.currentLangData = data; 
 
-        // АВТОМАТИЧНО ОБНОВЯВАНЕ ПО ID
+        // Обновяваме всички статични елементи (Title, Labels, Buttons)
         Object.keys(data).forEach(key => {
             const element = document.getElementById(key);
             if (element) {
-                element.innerText = data[key];
+                element.textContent = data[key];
             }
         });
 
         localStorage.setItem('preferredLang', langCode);
 
-        // Обновяваме таблицата, за да се сменят динамичните текстове (P, N и др.)
+        // ЕДВА СЕГА викаме calculate, когато езикът е зареден в window.currentLangData
         if (typeof calculate === "function") {
             calculate();
         }
-
     } catch (error) {
         console.error("Грешка при локализацията:", error);
     }
 }
+
+// Изпълнява се веднага при зареждане
+document.addEventListener('DOMContentLoaded', () => {
+    const savedLang = localStorage.getItem('preferredLang') || 'bg';
+    setLanguage(savedLang);
+});
