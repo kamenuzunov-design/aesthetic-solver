@@ -9,7 +9,7 @@
 </head>
 <body>
     <header style="display: flex; justify-content: space-between; align-items: center; padding: 20px 30px; background-color: #2d3d4c; border-bottom: 3px solid #1a252f;">
-        <div style="display: flex; flex-direction: column; align-items: flex-start;">
+        <div onclick="navigateTo('numeric')" style="display: flex; flex-direction: column; align-items: flex-start; cursor: pointer;" title="Към Числово пропорциониране">
             <img src="images/logo.png" alt="Logo" style="width: 243px; height: 100px; margin-bottom: 5px;">
             <h2 id="ui-title" style="margin: 0; font-family: Arial, sans-serif; color: #ffffff; letter-spacing: 1px;">Aesthetic Solver</h2>
         </div>
@@ -17,13 +17,13 @@
         <div class="controls" style="display: flex; gap: 25px;">
             <div style="display: flex; flex-direction: column; align-items: center; gap: 8px;">
                 <img src="images/bg_flag.png" alt="BG" 
-                     style="width: 45px; height: 45px; cursor: pointer; border: 2px solid #ffffff; border-radius: 50%; shadow: 0 2px 5px rgba(0,0,0,0.2);" 
+                     style="width: 45px; height: 45px; cursor: pointer; border: 2px solid #ffffff; border-radius: 50%; box-shadow: 0 2px 5px rgba(0,0,0,0.2);" 
                      onclick="setLanguage('bg')">
                 <button onclick="setLanguage('bg')" style="cursor: pointer; background: rgba(255,255,255,0.1); border: 1px solid #ffffff; border-radius: 4px; padding: 2px 10px; font-size: 12px; color: #ffffff;">БГ</button>
             </div>
             <div style="display: flex; flex-direction: column; align-items: center; gap: 8px;">
                 <img src="images/eng_flag.png" alt="EN" 
-                     style="width: 45px; height: 45px; cursor: pointer; border: 2px solid #ffffff; border-radius: 50%; shadow: 0 2px 5px rgba(0,0,0,0.2);" 
+                     style="width: 45px; height: 45px; cursor: pointer; border: 2px solid #ffffff; border-radius: 50%; box-shadow: 0 2px 5px rgba(0,0,0,0.2);" 
                      onclick="setLanguage('en')">
                 <button onclick="setLanguage('en')" style="cursor: pointer; background: rgba(255,255,255,0.1); border: 1px solid #ffffff; border-radius: 4px; padding: 2px 10px; font-size: 12px; color: #ffffff;">EN</button>
             </div>
@@ -72,32 +72,30 @@
             </div>
         </section>
 
-		<section id="sec-help" class="app-section" style="display: none;">
-			<div style="background: white; padding: 30px; border-radius: 8px; border: 1px solid #ccc;">
-				<h2 id="ui-help-title"></h2>
-				<p id="ui-help-text" style="margin-bottom: 20px; font-weight: bold;"></p>
-				<ul style="line-height: 1.8;">
-					<li id="ui-help-step-1"></li>
-					<li id="ui-help-step-2"></li>
-					<li id="ui-help-step-3"></li>
-					<li id="ui-help-step-4"></li>
-				</ul>
-			</div>
-		</section>
+        <section id="sec-help" class="app-section" style="display: none;">
+            <div style="background: white; padding: 30px; border-radius: 8px; border: 1px solid #ccc;">
+                <h2 id="ui-help-title"></h2>
+                <p id="ui-help-text" style="margin-bottom: 20px; font-weight: bold;"></p>
+                <ul style="line-height: 1.8;">
+                    <li id="ui-help-step-1"></li>
+                    <li id="ui-help-step-2"></li>
+                    <li id="ui-help-step-3"></li>
+                    <li id="ui-help-step-4"></li>
+                </ul>
+            </div>
+        </section>
     </main>
 
     <script src="lang.js"></script>
     <script src="solver.js"></script>
     <script>
         function navigateTo(sectionId) {
-            // Крием всички секции
             document.querySelectorAll('.app-section').forEach(sec => {
                 sec.style.display = 'none';
             });
-            // Показваме избраната
-            document.getElementById('sec-' + sectionId).style.display = 'block';
+            const target = document.getElementById('sec-' + sectionId);
+            if (target) target.style.display = 'block';
             
-            // Ако влизаме в геометрично, инициализираме Canvas
             if(sectionId === 'geometric' && typeof CanvasManager !== 'undefined') {
                 CanvasManager.init();
             }
