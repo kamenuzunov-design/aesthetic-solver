@@ -11,6 +11,7 @@ Desktop.ini
 
 # Временни файлове и логове
 *.log
+.firebase/
 tmp/
 temp/
 
