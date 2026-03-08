@@ -12,5 +12,13 @@
   "opt-zs": "1.618",
   "th-no": "No.",
   "row-p": "Proportion",
-  "row-n": "Nominal"
+  "row-n": "Nominal",
+  "ui-tab-num": "Numeric PROPORTIONING",
+  "ui-tab-graph": "Geometric PROPORTIONING",
+  "ui-tab-about": "About APP",
+  "ui-tab-help": "HELP",
+  "ui-geo-title": "Geometric Proportioning (Drawing Area)",
+  "ui-about-title": "About Aesthetic Solver",
+  "ui-about-text": "This application is a specialized tool for architectural and design planning, based on the mathematical principles of harmonic series and proportions.",
+  "ui-help-title": "Help and Instructions"
 }
