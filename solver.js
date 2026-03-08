@@ -17,7 +17,7 @@ const AestheticSolver = {
     // 2. Генератор на колона (изчислява 30 минора и 30 мажора)
     generateColumn: (nom, ratio, displayName) => {
         let col = new Array(62).fill(null);
-        const MIN = 10;
+        const MIN = 1;
         const MAX = 1000;
 
         // Ред 31 (Индекс 30): Използваме преведеното име от интерфейса
