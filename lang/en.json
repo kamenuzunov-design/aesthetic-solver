@@ -27,5 +27,8 @@
   "ui-help-step-1": "1. Enter a 'Nominal' (base value) in the control panel.",
   "ui-help-step-2": "2. Select the desired mathematical system from the dropdown menu (e.g., Golden Section or RPCH).",
   "ui-help-step-3": "3. Click the 'Analysis' button to generate the harmonic series in the table.",
-  "ui-help-step-4": "4. For comparative analysis: click on a column header. The system will highlight in green the values in other columns that match it within a 2% deviation."
+  "ui-help-step-4": "4. For comparative analysis: click on a column header. The system will highlight in green the values in other columns that match it within a 2% deviation.","ui-about-title": "About Aesthetic Solver",
+  "ui-about-mission": "Aesthetic Solver is designed as a digital assistant for architects, designers, and creators seeking mathematical harmony in their projects through precise calculations.",
+  "ui-about-method": "The application integrates the principles of the NORLO system for creative-innovative thinking, based on harmonic series, geometric progressions, and the Golden Ratio.",
+  "ui-about-version": "Version 1.0.2 © 2026"
 }
