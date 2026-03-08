@@ -1,96 +1,110 @@
+/* Базови стилове */
 body {
     margin: 0;
     font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
     background-color: #f4f4f9;
     color: #333;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
 }
 
+/* Header - използваме твоите цветове */
 header {
-    background: #2c3e50;
+    background: #2d3d4c;
     color: white;
     padding: 1rem 2rem;
     display: flex;
     justify-content: space-between;
     align-items: center;
     box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    z-index: 1001;
+}
+
+/* Навигация (Меню) */
+nav {
+    background-color: #3e4f5f;
+    padding: 0 30px;
+    display: flex;
+    gap: 10px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    z-index: 1000;
 }
 
 nav button {
     background: transparent;
-    border: 1px solid white;
+    border: none;
     color: white;
-    padding: 5px 10px;
+    padding: 15px 20px;
     cursor: pointer;
-    margin-left: 5px;
-    border-radius: 4px;
+    font-weight: bold;
+    font-family: Arial, sans-serif;
+    transition: background 0.3s;
 }
 
 nav button:hover {
-    background: white;
-    color: #2c3e50;
+    background: #4e5f6f;
 }
 
+/* Основна зона */
 main {
+    flex: 1;
     display: flex;
     flex-direction: column;
-    height: calc(100vh - 70px);
-}
-
-#input-section {
     padding: 20px;
-    background: white;
-    border-bottom: 1px solid #ddd;
-    text-align: center;
+    gap: 20px;
 }
 
+/* Контролен панел */
+.input-panel {
+    background: #eee;
+    padding: 15px;
+    border-radius: 8px;
+    border: 1px solid #ccc;
+}
+
+/* Работна площ и Таблица */
 #workspace {
-    display: flex;
     flex: 1;
-    overflow: hidden;
-}
-
-#canvas-container {
-    flex: 2;
-    background: #e0e0e0;
     display: flex;
-    align-items: center;
-    justify-content: center;
-    border-right: 1px solid #ddd;
+    flex-direction: column;
 }
 
-canvas {
+#results-area {
     background: white;
-    box-shadow: 0 0 20px rgba(0,0,0,0.1);
-    max-width: 95%;
-    max-height: 95%;
-}
-
-#results-panel {
-    flex: 1;
-    background: white;
-    padding: 20px;
-    overflow-y: auto;
+    border: 1px solid #ccc;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    overflow: auto; /* Позволява скрол, ако таблицата е голяма */
+    max-height: 70vh; /* Ограничава височината, за да не бяга от екрана */
 }
 
 table {
     width: 100%;
     border-collapse: collapse;
+    font-family: 'Courier New', monospace;
+    font-size: 14px;
+    text-align: center;
 }
 
-th, td {
-    padding: 10px;
-    border-bottom: 1px solid #eee;
-    text-align: left;
-}
-
-th {
+#propsTable th {
     background-color: #f8f9fa;
-    font-weight: 600;
+    position: sticky; /* Заглавието на таблицата остава отгоре при скрол */
+    top: 0;
+    z-index: 10;
 }
-#propsTable tr:hover {
-    background-color: #f5f5f5; /* Подчертава реда, върху който е мишката */
-}
+
 #propsTable td, #propsTable th {
     border: 1px solid #ddd;
     padding: 8px;
+}
+
+#propsTable tr:hover {
+    background-color: #f5f5f5;
+}
+
+/* Скриване на Canvas-а, когато не се ползва */
+#mainCanvas {
+    background: white;
+    box-shadow: 0 0 20px rgba(0,0,0,0.1);
+    align-self: center;
 }

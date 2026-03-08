@@ -4,63 +4,104 @@
     <meta charset="UTF-8">
     <title>Aesthetic Solver</title>
     <link rel="stylesheet" href="styles.css">
-	<link rel="icon" type="image/png" href="images/favicon.png">
-	<link rel="apple-touch-icon" href="images/favicon.png">
+    <link rel="icon" type="image/png" href="images/favicon.png">
+    <link rel="apple-touch-icon" href="images/favicon.png">
 </head>
 <body>
-	<header style="display: flex; justify-content: space-between; align-items: center; padding: 20px 30px; background-color: #2d3d4c; border-bottom: 3px solid #1a252f;">
-		
-		<div style="display: flex; flex-direction: column; align-items: flex-start;">
-			<img src="images/logo.png" alt="Logo" style="width: 243px; height: 100px; margin-bottom: 5px;">
-			<h2 id="ui-title" style="margin: 0; font-family: Arial, sans-serif; color: #ffffff; letter-spacing: 1px;">Aesthetic Solver</h2>
-		</div>
-
-		<div class="controls" style="display: flex; gap: 25px;">
-			
-			<div style="display: flex; flex-direction: column; align-items: center; gap: 8px;">
-				<img src="images/bg_flag.png" alt="BG" 
-					 style="width: 45px; height: 45px; cursor: pointer; border: 2px solid #ffffff; border-radius: 50%; box-shadow: 0 2px 5px rgba(0,0,0,0.2);" 
-					 onclick="setLanguage('bg')">
-				<button onclick="setLanguage('bg')" style="cursor: pointer; background: rgba(255,255,255,0.1); border: 1px solid #ffffff; border-radius: 4px; padding: 2px 10px; font-size: 12px; color: #ffffff;">БГ</button>
-			</div>
-
-			<div style="display: flex; flex-direction: column; align-items: center; gap: 8px;">
-				<img src="images/eng_flag.png" alt="EN" 
-					 style="width: 45px; height: 45px; cursor: pointer; border: 2px solid #ffffff; border-radius: 50%; box-shadow: 0 2px 5px rgba(0,0,0,0.2);" 
-					 onclick="setLanguage('en')">
-				<button onclick="setLanguage('en')" style="cursor: pointer; background: rgba(255,255,255,0.1); border: 1px solid #ffffff; border-radius: 4px; padding: 2px 10px; font-size: 12px; color: #ffffff;">EN</button>
-			</div>
-
-		</div>
-	</header>
-    <main style="display: flex; flex-direction: column; padding: 20px; gap: 20px;">
-        <div class="input-panel" style="background: #eee; padding: 15px; border-radius: 8px;">
-            <label id="ui-label-nom">Nom:</label>
-            <input type="number" id="baseNum" value="200" style="width: 80px;">
-            
-            <label id="ui-label-system">Система:</label>
-            <select id="ratioSelect">
-                <option id="opt-rpch2" value="rpch2">II РПЧ (1.059)</option>
-                <option id="opt-rpch3" value="rpch3" selected>III РПЧ (1.122)</option>
-                <option id="opt-rpch4" value="rpch4">IV РПЧ (1.259)</option>
-                <option id="opt-rzs" value="rzs">РЗС (1.272)</option>
-                <option id="opt-rzv" value="rzv">РЗВ (1.309)</option>
-                <option id="opt-zs" value="zs">ЗС (1.618)</option>
-            </select>
-            
-            <button id="ui-calculate" onclick="calculate()">Анализ</button>
+    <header style="display: flex; justify-content: space-between; align-items: center; padding: 20px 30px; background-color: #2d3d4c; border-bottom: 3px solid #1a252f;">
+        <div style="display: flex; flex-direction: column; align-items: flex-start;">
+            <img src="images/logo.png" alt="Logo" style="width: 243px; height: 100px; margin-bottom: 5px;">
+            <h2 id="ui-title" style="margin: 0; font-family: Arial, sans-serif; color: #ffffff; letter-spacing: 1px;">Aesthetic Solver</h2>
         </div>
 
-        <div id="workspace" style="display: flex; flex-direction: column; gap: 20px;">
-            <canvas id="mainCanvas" style="display: none; border:2px solid #2c3e50;"></canvas>
-            
-            <div id="results-area" style="overflow-x: auto; background: white; border: 1px solid #ccc; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
-                <table id="propsTable" style="width: 100%; border-collapse: collapse; font-family: 'Courier New', monospace; font-size: 14px; text-align: center;">
-                    </table>
+        <div class="controls" style="display: flex; gap: 25px;">
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 8px;">
+                <img src="images/bg_flag.png" alt="BG" 
+                     style="width: 45px; height: 45px; cursor: pointer; border: 2px solid #ffffff; border-radius: 50%; shadow: 0 2px 5px rgba(0,0,0,0.2);" 
+                     onclick="setLanguage('bg')">
+                <button onclick="setLanguage('bg')" style="cursor: pointer; background: rgba(255,255,255,0.1); border: 1px solid #ffffff; border-radius: 4px; padding: 2px 10px; font-size: 12px; color: #ffffff;">БГ</button>
             </div>
-        </div> </main>
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 8px;">
+                <img src="images/eng_flag.png" alt="EN" 
+                     style="width: 45px; height: 45px; cursor: pointer; border: 2px solid #ffffff; border-radius: 50%; shadow: 0 2px 5px rgba(0,0,0,0.2);" 
+                     onclick="setLanguage('en')">
+                <button onclick="setLanguage('en')" style="cursor: pointer; background: rgba(255,255,255,0.1); border: 1px solid #ffffff; border-radius: 4px; padding: 2px 10px; font-size: 12px; color: #ffffff;">EN</button>
+            </div>
+        </div>
+    </header>
+
+    <nav style="background-color: #3e4f5f; padding: 0 30px; display: flex; gap: 10px;">
+        <button id="ui-tab-num" onclick="navigateTo('numeric')" style="background: none; border: none; color: white; padding: 15px; cursor: pointer; font-weight: bold; font-family: Arial;">Числово ПРОПОРЦИОНИРАНЕ</button>
+        <button id="ui-tab-graph" onclick="navigateTo('geometric')" style="background: none; border: none; color: white; padding: 15px; cursor: pointer; font-weight: bold; font-family: Arial;">Геометрично ПРОПОРЦИОНИРАНЕ</button>
+        <button id="ui-tab-about" onclick="navigateTo('about')" style="background: none; border: none; color: white; padding: 15px; cursor: pointer; font-weight: bold; font-family: Arial;">За ПРИЛОЖЕНИЕТО</button>
+        <button id="ui-tab-help" onclick="navigateTo('help')" style="background: none; border: none; color: white; padding: 15px; cursor: pointer; font-weight: bold; font-family: Arial;">ПОМОЩ</button>
+    </nav>
+
+    <main style="padding: 20px;">
+        <section id="sec-numeric" class="app-section">
+            <div id="ui-panel-control" class="input-panel" style="background: #eee; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                <label id="ui-label-nom">Nom:</label>
+                <input type="number" id="baseNum" value="200" style="width: 80px;" onchange="calculate()">
+                <label id="ui-label-system">Система:</label>
+                <select id="ratioSelect" onchange="calculate()">
+                    <option id="opt-rpch2" value="rpch2">II РПЧ (1.059)</option>
+                    <option id="opt-rpch3" value="rpch3" selected>III РПЧ (1.122)</option>
+                    <option id="opt-rpch4" value="rpch4">IV РПЧ (1.259)</option>
+                    <option id="opt-rzs" value="rzs">РЗС (1.272)</option>
+                    <option id="opt-rzv" value="rzv">РЗВ (1.309)</option>
+                    <option id="opt-zs" value="zs">ЗС (1.618)</option>
+                </select>
+                <button id="ui-calculate" onclick="calculate()">Анализ</button>
+            </div>
+            <div id="results-area" style="overflow-x: auto; background: white; border: 1px solid #ccc;">
+                <table id="propsTable" style="width: 100%; border-collapse: collapse; text-align: center;"></table>
+            </div>
+        </section>
+
+        <section id="sec-geometric" class="app-section" style="display: none;">
+            <div style="background: #eee; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                <h3 id="ui-geo-title">Геометрично пропорциониране (Canvas)</h3>
+            </div>
+            <canvas id="mainCanvas" style="border:2px solid #2d3d4c; background: white; display: block; margin: 0 auto;"></canvas>
+        </section>
+
+        <section id="sec-about" class="app-section" style="display: none;">
+            <div style="background: white; padding: 30px; border-radius: 8px; border: 1px solid #ccc;">
+                <h2 id="ui-about-title">За Aesthetic Solver</h2>
+                <p id="ui-about-text">Това приложение е предназначено за изчисляване и визуализиране на естетически пропорции...</p>
+            </div>
+        </section>
+
+		<section id="sec-help" class="app-section" style="display: none;">
+			<div style="background: white; padding: 30px; border-radius: 8px; border: 1px solid #ccc;">
+				<h2 id="ui-help-title"></h2>
+				<p id="ui-help-text" style="margin-bottom: 20px; font-weight: bold;"></p>
+				<ul style="line-height: 1.8;">
+					<li id="ui-help-step-1"></li>
+					<li id="ui-help-step-2"></li>
+					<li id="ui-help-step-3"></li>
+					<li id="ui-help-step-4"></li>
+				</ul>
+			</div>
+		</section>
+    </main>
 
     <script src="lang.js"></script>
     <script src="solver.js"></script>
+    <script>
+        function navigateTo(sectionId) {
+            // Крием всички секции
+            document.querySelectorAll('.app-section').forEach(sec => {
+                sec.style.display = 'none';
+            });
+            // Показваме избраната
+            document.getElementById('sec-' + sectionId).style.display = 'block';
+            
+            // Ако влизаме в геометрично, инициализираме Canvas
+            if(sectionId === 'geometric' && typeof CanvasManager !== 'undefined') {
+                CanvasManager.init();
+            }
+        }
+    </script>
 </body>
 </html>
