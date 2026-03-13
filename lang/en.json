@@ -39,5 +39,7 @@
   "ui-about-feat-3": "Real-time proportion visualization (under development).",
   "ui-direct-title": "Direct Proportioning",
   "ui-inverse-title": "Inverse Proportioning",
-  "ui-recommend": "Recommended Numbers"
+  "ui-recommend": "Recommended Numbers",
+  "ui-label-result-chain": "Recommended Chain:",
+  "ui-copy-share": "Copy"
 }

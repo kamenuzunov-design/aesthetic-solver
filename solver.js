@@ -1,10 +1,10 @@
 /**
  * Aesthetic Solver - Основна логика за изчисление
- * Включва "Права задача" с 62 реда и динамична езикова поддръжка.
+ * Включва "Права задача", Хармоничен анализ и Специфично закръгляне.
  */
 
 const AestheticSolver = {
-    // 1. Дефиниране на шестте системи с техните ID-та за връзка с интерфейса
+    // 1. Дефиниране на шестте системи
     ratios: [
         { name: "II РПЧ", val: 1.059, id_key: "rpch2" },
         { name: "III РПЧ", val: 1.122, id_key: "rpch3" },
@@ -14,18 +14,15 @@ const AestheticSolver = {
         { name: "ЗС", val: 1.618, id_key: "zs" }
     ],
 
-    // 2. Генератор на колона (изчислява 30 минора и 30 мажора)
+    // 2. Генератор на колона
     generateColumn: (nom, ratio, displayName) => {
         let col = new Array(62).fill(null);
-        const MIN = 1;
+        const MIN = 10;
         const MAX = 1000;
 
-        // Ред 31 (Индекс 30): Използваме преведеното име от интерфейса
         col[30] = displayName;
-        // Ред 32 (Индекс 31): Стойност на Номинала
         col[31] = nom;
 
-        // Изчисляване на Минори (нагоре)
         let currentDown = nom;
         for (let i = 29; i >= 0; i--) {
             currentDown /= ratio;
@@ -33,7 +30,6 @@ const AestheticSolver = {
             col[i] = Number(currentDown.toFixed(2));
         }
 
-        // Изчисляване на Мажори (надолу)
         let currentUp = nom;
         for (let i = 32; i < 62; i++) {
             currentUp *= ratio;
@@ -43,7 +39,7 @@ const AestheticSolver = {
         return col;
     },
 
-    // 3. Функция за проверка на 2% отклонение (Хармоничен анализ)
+    // 3. Функция за проверка на 2% отклонение
     isHarmonic: (target, reference) => {
         if (!target || !reference || isNaN(target) || isNaN(reference)) return false;
         const diff = Math.abs(target - reference);
@@ -51,7 +47,7 @@ const AestheticSolver = {
     }
 };
 
-let currentMatrix = []; // Глобална променлива за съхранение на изчислените данни
+let currentMatrix = []; // Глобална променлива за данните
 
 /**
  * Основна функция за генериране на таблицата
@@ -61,143 +57,55 @@ function calculate() {
     const table = document.getElementById('propsTable');
     if (!inputField || !table) return;
 
-    const nom = parseFloat(inputField.value);
-    
-    // Взимаме актуалните преводи от глобалния обект (зареден от lang.js)
+    const nom = parseFloat(inputField.value) || 200;
     const lang = window.currentLangData || {};
     const txtNo = lang["th-no"] || "№";
     const txtP = lang["row-p"] || "P"; 
     const txtN = lang["row-n"] || "N";
 
-    // Първо извличаме преведените имена от селектора в HTML за всяка система
     let displayNames = AestheticSolver.ratios.map(r => {
         const optEl = document.getElementById(`opt-${r.id_key}`);
         return optEl ? optEl.innerText : r.name;
     });
 
-    // Изграждане на заглавната част (thead)
     let html = `<thead><tr><th style="border: 1px solid #ccc; padding: 5px;">${txtNo}</th>`;
     displayNames.forEach((name, idx) => {
         html += `<th onclick="runHarmonyAnalysis(${idx})" style="cursor:pointer; background:#f0f0f0; border:1px solid #ccc; padding: 10px;">${name}</th>`;
     });
     html += '</tr></thead><tbody>';
 
-    // Генериране на матрицата (6 колони по 62 реда)
     currentMatrix = AestheticSolver.ratios.map((r, idx) => 
         AestheticSolver.generateColumn(nom, r.val, displayNames[idx])
     );
 
-    // Изграждане на тялото на таблицата (tbody)
     for (let i = 0; i < 62; i++) {
-        // Оцветяване на редовете за Пропорция (P) и Номинал (N)
         let rowStyle = (i === 30 || i === 31) ? 'style="background-color: #D3D3D3; font-weight: bold;"' : '';
-        
-        // Определяне на етикета в първата колона
-        let rowLabel = "";
-        if (i < 30) rowLabel = `m${30 - i}`;      
-        else if (i === 30) rowLabel = txtP;  
-        else if (i === 31) rowLabel = txtN;  
-        else rowLabel = `M${i - 31}`;             
+        let rowLabel = (i < 30) ? `m${30 - i}` : (i === 30 ? txtP : (i === 31 ? txtN : `M${i - 31}`));
         
         html += `<tr ${rowStyle}><td style="border: 1px solid #eee; padding: 3px; font-weight: bold;">${rowLabel}</td>`;
-        
         for (let j = 0; j < currentMatrix.length; j++) {
             let val = currentMatrix[j][i] || "";
-            // ID-то на клетката е важно за оцветяването при анализ
             html += `<td id="cell-${j}-${i}" style="border: 1px solid #eee; padding: 3px;">${val}</td>`;
         }
         html += '</tr>';
     }
-    
     table.innerHTML = html + '</tbody>';
 }
 
 /**
- * Функция за бутона "Препоръчани числа"
- * Извиква анализа на базата на текущо избраната система от падащото меню
- */
-function runRecommendedAnalysis() {
-    const select = document.getElementById('ratioSelect');
-    if (!select) return;
-    
-    // Намираме индекса на избраната система в масива AestheticSolver.ratios
-    const selectedValue = select.value; // напр. 'rpch3'
-    const index = AestheticSolver.ratios.findIndex(r => r.id_key === selectedValue);
-    
-    if (index !== -1) {
-        runHarmonyAnalysis(index);
-    }
-}
-
-/**
  * Функция за сравнителен анализ спрямо избрана колона (±2%)
+ * С два нюанса на зеленото.
  */
 function runHarmonyAnalysis(refColIdx) {
-    // Дефинираме цветовете
-    const colorPrimary = "#77dd77"; // Наситено зелено за избраната колона
-    const colorMatch = "#e2f3e2";   // Много бледо зелено за съвпаденията
+    const colorPrimary = "#77dd77"; // Наситено зелено
+    const colorMatch = "#e2f3e2";   // Бледо зелено
 
-    // 1. Изчистване на предишни оцветявания (без да пипаме сивите редове P и N)
     const allCells = document.querySelectorAll('#propsTable td');
     allCells.forEach(c => {
         if (c.id) {
             const rowIdx = parseInt(c.id.split('-')[2]);
-            if (rowIdx !== 30 && rowIdx !== 31) {
-                c.style.backgroundColor = "";
-            }
+            if (rowIdx !== 30 && rowIdx !== 31) c.style.backgroundColor = "";
         }
     });
 
-    // 2. Вземаме само числовите стойности от референтната (избраната) колона
-    const referenceValues = currentMatrix[refColIdx].filter(v => typeof v === 'number');
-
-    // 3. Обхождаме цялата матрица за оцветяване
-    for (let col = 0; col < currentMatrix.length; col++) {
-        for (let row = 0; row < 62; row++) {
-            // Пропускаме редовете P и N
-            if (row === 30 || row === 31) continue;
-
-            let targetVal = currentMatrix[col][row];
-            if (typeof targetVal !== 'number') continue;
-
-            const cell = document.getElementById(`cell-${col}-${row}`);
-            if (!cell) continue;
-
-            // А) Ако това е избраната колона - оцветяваме целия й активен обхват в по-тъмно зелено
-            if (col === refColIdx) {
-                cell.style.backgroundColor = colorPrimary;
-            } 
-            // Б) Ако е друга колона - проверяваме за хармонично съвпадение
-            else {
-                const hasMatch = referenceValues.some(refVal => AestheticSolver.isHarmonic(targetVal, refVal));
-                if (hasMatch) {
-                    cell.style.backgroundColor = colorMatch; // Бледо зелено за съвпадение
-                }
-            }
-        }
-    }
-}
-
-/**
- * Управление на графичната работна площ (Canvas)
- */
-const CanvasManager = {
-    init: () => {
-        const canvas = document.getElementById('mainCanvas');
-        if (!canvas) return;
-        const ctx = canvas.getContext('2d');
-        canvas.width = 600;
-        canvas.height = 400;
-        ctx.fillStyle = "#ffffff";
-        ctx.fillRect(0, 0, 600, 400);
-    }
-};
-
-/**
- * Инициализация при зареждане на страницата
- */
-window.addEventListener('load', () => {
-    CanvasManager.init();
-    // Тук НЕ викаме calculate директно, 
-    // защото lang.js ще го извика след като зареди JSON файла.
-});
+    const reference

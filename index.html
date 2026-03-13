@@ -62,6 +62,18 @@
 
 						<button id="ui-recommend" onclick="runRecommendedAnalysis()" style="padding: 5px 12px; cursor: pointer; background-color: #3e4f5f; color: white; border: none; border-radius: 4px;">Препоръчани числа</button>
 					</div>
+					<div style="margin-top: 15px; display: flex; flex-direction: column; gap: 8px;">
+						<label id="ui-label-result-chain" style="font-weight: bold; font-size: 13px;">Препоръчана верига:</label>
+						<div style="display: flex; gap: 10px;">
+							<input type="text" id="resultChain" readonly 
+								   style="flex: 1; padding: 8px; border: 1px solid #ccc; border-radius: 4px; background: #fff; font-family: monospace;" 
+								   placeholder="Числата ще се появят тук...">
+							<button id="ui-copy-share" onclick="copyAndShare()" 
+									style="padding: 8px 15px; cursor: pointer; background-color: #2d3d4c; color: white; border: none; border-radius: 4px;">
+									Копирай
+							</button>
+						</div>
+					</div>
 				</div>
 
 				<div style="flex: 1; background: #e8e8e8; padding: 15px; border-radius: 8px; border: 1px solid #ccc; min-height: 100px;">
