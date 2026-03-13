@@ -160,27 +160,20 @@ function generateChain(refColIdx) {
 
 function runInverseAnalysis() {
     const input = document.getElementById('inputChain').value;
-    const nums = input.split(/[, ]+/).map(n => parseFloat(n)).filter(n => !isNaN(n)).sort((a, b) => a - b);
+    const nums = input.split(/[, \n\t]+/).map(n => parseFloat(n)).filter(n => !isNaN(n)).sort((a, b) => a - b);
 
     if (nums.length < 5) {
-        alert("Моля, въведете поне 5 числа.");
+        alert("Моля, въведете поне 5 числа за коректен анализ.");
         return;
     }
 
-    // 1. Избор на Номинал по стратегия
-    const strategy = document.querySelector('input[name="nomStrategy"]:checked').value;
-    let nominal = 0;
-    
-    if (strategy === 'doubleZero') {
-        nominal = nums.find(n => n % 100 === 0) || nums.find(n => n % 10 === 0) || nums[Math.floor(nums.length/2)];
-    } else if (strategy === 'singleZero') {
-        nominal = nums.find(n => n % 10 === 0) || nums[Math.floor(nums.length/2)];
-    } else {
-        nominal = nums[Math.floor(nums.length/2)];
-    }
+    // 1. АВТОМАТИЧЕН ИЗБОР НА НОМИНАЛ
+    let nominal = nums.find(n => n % 100 === 0) || 
+                  nums.find(n => n % 10 === 0) || 
+                  nums[Math.floor(nums.length / 2)];
 
-    // 2. Търсене на най-добра пропорция
-    let bestMatch = { ratioIdx: 0, removed: [], exact: [], score: -1 };
+    // 2. ТЪРСЕНЕ НА НАЙ-ДОБРА ПРОПОРЦИЯ
+    let bestMatch = { ratioIdx: -1, removed: [], exact: [], score: -1 };
 
     AestheticSolver.ratios.forEach((ratioObj, idx) => {
         const idealCol = AestheticSolver.generateColumn(nominal, ratioObj.val, ratioObj.name);
@@ -198,12 +191,32 @@ function runInverseAnalysis() {
         }
     });
 
-    // 3. Показване на резултатите
-    document.getElementById('inverse-results').style.display = 'block';
-    document.getElementById('res-system').innerText = AestheticSolver.ratios[bestMatch.ratioIdx].name;
-    document.getElementById('res-nominal').innerText = nominal;
-    document.getElementById('res-removed').innerText = bestMatch.removed.join(', ') || 'Няма';
-    document.getElementById('res-exact').innerText = bestMatch.exact.join(', ');
+    // 3. СИНХРОНИЗАЦИЯ И ВИЗУАЛИЗАЦИЯ
+    if (bestMatch.ratioIdx !== -1) {
+        // Показваме панела с резултати (текстово)
+        document.getElementById('inverse-results').style.display = 'block';
+        document.getElementById('res-system').innerText = AestheticSolver.ratios[bestMatch.ratioIdx].name;
+        document.getElementById('res-nominal').innerText = nominal;
+        document.getElementById('res-removed').innerText = bestMatch.removed.join(', ') || 'Няма';
+        document.getElementById('res-exact').innerText = bestMatch.exact.join(', ');
+
+        // АВТОМАТИЧНО ОБНОВЯВАНЕ НА ОСНОВНАТА ТАБЛИЦА
+        // А) Задаваме новия номинал в лявото поле
+        const baseNumInput = document.getElementById('baseNum');
+        if (baseNumInput) baseNumInput.value = nominal;
+
+        // Б) Превключваме селектора на намерената система
+        const select = document.getElementById('ratioSelect');
+        if (select) {
+            select.value = AestheticSolver.ratios[bestMatch.ratioIdx].id_key;
+        }
+        
+        // В) Преизчисляваме цялата таблица
+        calculate();
+        
+        // Г) Оцветяваме намерената колона и нейните съвпадения
+        runHarmonyAnalysis(bestMatch.ratioIdx);
+    }
 }
 
 function applyHarmonyRounding(val) {
