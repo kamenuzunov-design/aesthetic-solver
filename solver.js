@@ -94,6 +94,17 @@ function runRecommendedAnalysis() {
 }
 
 function runHarmonyAnalysis(refColIdx) {
+    // 1. СИНХРОНИЗАЦИЯ: Намираме ID-то на системата и обновяваме падащото меню
+    const systemId = AestheticSolver.ratios[refColIdx].id_key;
+    const select = document.getElementById('ratioSelect');
+    if (select) {
+        select.value = systemId;
+    }
+
+    // 2. Генерираме веригата от числа (същата логика като бутона)
+    generateChain(refColIdx);
+
+    // --- Останалата част от функцията за оцветяване си остава същата ---
     const colorPrimary = "#77dd77"; 
     const colorMatch = "#e2f3e2";   
     const allCells = document.querySelectorAll('#propsTable td');
