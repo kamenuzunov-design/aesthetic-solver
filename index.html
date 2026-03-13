@@ -80,22 +80,18 @@
 					<h3 id="ui-inverse-title" style="margin-top: 0; color: #2d3d4c; border-bottom: 1px solid #ccc; padding-bottom: 5px;">Обратно пропорциониране</h3>
 					<div id="inverse-content" style="margin-top: 10px; display: flex; flex-direction: column; gap: 12px;">
 						<label id="ui-label-input-chain" style="font-weight: bold; font-size: 13px;">Въведете числа (разделени със запетая):</label>
-						<textarea id="inputChain" rows="2" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-family: monospace;" placeholder="напр. 100, 112, 126, 141, 158, 178"></textarea>
+						<textarea id="inputChain" rows="3" style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; font-family: monospace; resize: vertical;" placeholder="напр. 100, 112, 126, 141, 158, 178"></textarea>
 						
-						<div style="display: flex; flex-direction: column; gap: 5px; background: #fff; padding: 10px; border-radius: 4px; border: 1px solid #ddd;">
-							<label style="font-weight: bold; font-size: 12px; margin-bottom: 5px;" id="ui-label-strategy">Стратегия за Номинал:</label>
-							<label style="font-size: 13px;"><input type="radio" name="nomStrategy" value="doubleZero" checked> <span id="ui-strat-1">Завършва на 00 (100, 200...)</span></label>
-							<label style="font-size: 13px;"><input type="radio" name="nomStrategy" value="singleZero"> <span id="ui-strat-2">Завършва на 0 (10, 20...)</span></label>
-							<label style="font-size: 13px;"><input type="radio" name="nomStrategy" value="middle"> <span id="ui-strat-3">Средно число от веригата</span></label>
-						</div>
+						<button id="ui-inverse-analyze" onclick="runInverseAnalysis()" style="padding: 12px; cursor: pointer; background-color: #2d3d4c; color: white; border: none; border-radius: 4px; font-weight: bold; transition: background 0.3s;">
+							Анализ на верига
+						</button>
 
-						<button id="ui-inverse-analyze" onclick="runInverseAnalysis()" style="padding: 10px; cursor: pointer; background-color: #2d3d4c; color: white; border: none; border-radius: 4px; font-weight: bold;">Анализ на верига</button>
-
-						<div id="inverse-results" style="display: none; background: #fdfdfd; padding: 15px; border-left: 4px solid #2d3d4c; font-size: 13px; line-height: 1.5;">
-							<p><strong>Система:</strong> <span id="res-system">-</span></p>
-							<p><strong>Избран Номинал:</strong> <span id="res-nominal">-</span></p>
-							<p style="color: #d9534f;"><strong>Премахнати:</strong> <span id="res-removed">-</span></p>
-							<p style="color: #5cb85c;"><strong>Точна верига:</strong> <span id="res-exact">-</span></p>
+						<div id="inverse-results" style="display: none; background: #fdfdfd; padding: 15px; border-left: 4px solid #2d3d4c; font-size: 13px; line-height: 1.6; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
+							<p style="margin: 5px 0;"><strong>Система:</strong> <span id="res-system" style="color: #2c3e50; font-weight: bold;">-</span></p>
+							<p style="margin: 5px 0;"><strong>Автоматичен Номинал:</strong> <span id="res-nominal" style="color: #2c3e50; font-weight: bold;">-</span></p>
+							<hr style="border: 0; border-top: 1px solid #eee; margin: 10px 0;">
+							<p style="color: #d9534f; margin: 5px 0;"><strong>Премахнати (грешни):</strong> <br><span id="res-removed">-</span></p>
+							<p style="color: #28a745; margin: 5px 0;"><strong>Хармонична верига (+-2%):</strong> <br><span id="res-exact" style="word-break: break-all;">-</span></p>
 						</div>
 					</div>
 				</div>
