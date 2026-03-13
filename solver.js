@@ -133,7 +133,11 @@ function runRecommendedAnalysis() {
  * Функция за сравнителен анализ спрямо избрана колона (±2%)
  */
 function runHarmonyAnalysis(refColIdx) {
-    // Изчистване на предишни оцветявания (без да пипаме сивите редове)
+    // Дефинираме цветовете
+    const colorPrimary = "#77dd77"; // Наситено зелено за избраната колона
+    const colorMatch = "#e2f3e2";   // Много бледо зелено за съвпаденията
+
+    // 1. Изчистване на предишни оцветявания (без да пипаме сивите редове P и N)
     const allCells = document.querySelectorAll('#propsTable td');
     allCells.forEach(c => {
         if (c.id) {
@@ -144,22 +148,31 @@ function runHarmonyAnalysis(refColIdx) {
         }
     });
 
-    // Вземаме само числовите стойности от референтната колона
+    // 2. Вземаме само числовите стойности от референтната (избраната) колона
     const referenceValues = currentMatrix[refColIdx].filter(v => typeof v === 'number');
 
+    // 3. Обхождаме цялата матрица за оцветяване
     for (let col = 0; col < currentMatrix.length; col++) {
-        if (col === refColIdx) continue; // Пропускаме избраната колона
-
         for (let row = 0; row < 62; row++) {
+            // Пропускаме редовете P и N
+            if (row === 30 || row === 31) continue;
+
             let targetVal = currentMatrix[col][row];
             if (typeof targetVal !== 'number') continue;
 
-            // Сравняваме с всяка стойност от референтната колона
-            const hasMatch = referenceValues.some(refVal => AestheticSolver.isHarmonic(targetVal, refVal));
+            const cell = document.getElementById(`cell-${col}-${row}`);
+            if (!cell) continue;
 
-            if (hasMatch && row !== 30 && row !== 31) {
-                const cell = document.getElementById(`cell-${col}-${row}`);
-                if (cell) cell.style.backgroundColor = "#90EE90"; // Светлозелено съвпадение
+            // А) Ако това е избраната колона - оцветяваме целия й активен обхват в по-тъмно зелено
+            if (col === refColIdx) {
+                cell.style.backgroundColor = colorPrimary;
+            } 
+            // Б) Ако е друга колона - проверяваме за хармонично съвпадение
+            else {
+                const hasMatch = referenceValues.some(refVal => AestheticSolver.isHarmonic(targetVal, refVal));
+                if (hasMatch) {
+                    cell.style.backgroundColor = colorMatch; // Бледо зелено за съвпадение
+                }
             }
         }
     }
