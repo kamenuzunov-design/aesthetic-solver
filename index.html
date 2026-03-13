@@ -38,25 +38,44 @@
     </nav>
 
     <main style="padding: 20px;">
-        <section id="sec-numeric" class="app-section">
-            <div id="ui-panel-control" class="input-panel" style="background: #eee; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
-                <label id="ui-label-nom">Nom:</label>
-                <input type="number" id="baseNum" value="200" style="width: 80px;" onchange="calculate()">
-                <label id="ui-label-system">Система:</label>
-                <select id="ratioSelect" onchange="calculate()">
-                    <option id="opt-rpch2" value="rpch2">II РПЧ (1.059)</option>
-                    <option id="opt-rpch3" value="rpch3" selected>III РПЧ (1.122)</option>
-                    <option id="opt-rpch4" value="rpch4">IV РПЧ (1.259)</option>
-                    <option id="opt-rzs" value="rzs">РЗС (1.272)</option>
-                    <option id="opt-rzv" value="rzv">РЗВ (1.309)</option>
-                    <option id="opt-zs" value="zs">ЗС (1.618)</option>
-                </select>
-                <button id="ui-calculate" onclick="calculate()">Анализ</button>
-            </div>
-            <div id="results-area" style="overflow-x: auto; background: white; border: 1px solid #ccc;">
-                <table id="propsTable" style="width: 100%; border-collapse: collapse; text-align: center;"></table>
-            </div>
-        </section>
+		<section id="sec-numeric" class="app-section">
+			<div style="display: flex; gap: 20px; align-items: flex-start;">
+				
+				<div style="flex: 1; background: #eee; padding: 15px; border-radius: 8px; border: 1px solid #ccc;">
+					<h3 id="ui-direct-title" style="margin-top: 0; color: #2d3d4c; border-bottom: 1px solid #ccc; padding-bottom: 5px;">Право пропорциониране</h3>
+					
+					<div style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 10px;">
+						<label id="ui-label-nom">Nom:</label>
+						<input type="number" id="baseNum" value="200" style="width: 70px; padding: 4px;" onchange="calculate()">
+						
+						<button id="ui-calculate" onclick="calculate()" style="padding: 5px 12px; cursor: pointer;">Анализ</button>
+						
+						<label id="ui-label-system">Система:</label>
+						<select id="ratioSelect" onchange="calculate()" style="padding: 4px;">
+							<option id="opt-rpch2" value="rpch2">II РПЧ (1.059)</option>
+							<option id="opt-rpch3" value="rpch3" selected>III РПЧ (1.122)</option>
+							<option id="opt-rpch4" value="rpch4">IV РПЧ (1.259)</option>
+							<option id="opt-rzs" value="rzs">РЗС (1.272)</option>
+							<option id="opt-rzv" value="rzv">РЗВ (1.309)</option>
+							<option id="opt-zs" value="zs">ЗС (1.618)</option>
+						</select>
+
+						<button id="ui-recommend" onclick="runRecommendedAnalysis()" style="padding: 5px 12px; cursor: pointer; background-color: #3e4f5f; color: white; border: none; border-radius: 4px;">Препоръчани числа</button>
+					</div>
+				</div>
+
+				<div style="flex: 1; background: #e8e8e8; padding: 15px; border-radius: 8px; border: 1px solid #ccc; min-height: 100px;">
+					<h3 id="ui-inverse-title" style="margin-top: 0; color: #2d3d4c; border-bottom: 1px solid #ccc; padding-bottom: 5px;">Обратно пропорциониране</h3>
+					<div id="inverse-content">
+						</div>
+				</div>
+
+			</div>
+
+			<div id="results-area" style="overflow-x: auto; background: white; border: 1px solid #ccc; margin-top: 20px;">
+				<table id="propsTable" style="width: 100%; border-collapse: collapse; text-align: center;"></table>
+			</div>
+		</section>
 
         <section id="sec-geometric" class="app-section" style="display: none;">
             <div style="background: #eee; padding: 15px; border-radius: 8px; margin-bottom: 20px;">

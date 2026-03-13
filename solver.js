@@ -113,6 +113,23 @@ function calculate() {
 }
 
 /**
+ * Функция за бутона "Препоръчани числа"
+ * Извиква анализа на базата на текущо избраната система от падащото меню
+ */
+function runRecommendedAnalysis() {
+    const select = document.getElementById('ratioSelect');
+    if (!select) return;
+    
+    // Намираме индекса на избраната система в масива AestheticSolver.ratios
+    const selectedValue = select.value; // напр. 'rpch3'
+    const index = AestheticSolver.ratios.findIndex(r => r.id_key === selectedValue);
+    
+    if (index !== -1) {
+        runHarmonyAnalysis(index);
+    }
+}
+
+/**
  * Функция за сравнителен анализ спрямо избрана колона (±2%)
  */
 function runHarmonyAnalysis(refColIdx) {

@@ -36,5 +36,8 @@
   "ui-about-features-title": "Features",
   "ui-about-feat-1": "Generation of 62-row harmonic tables.",
   "ui-about-feat-2": "Comparative analysis with 2% tolerance for finding matches between systems.",
-  "ui-about-feat-3": "Real-time proportion visualization (under development)."
+  "ui-about-feat-3": "Real-time proportion visualization (under development).",
+  "ui-direct-title": "Direct Proportioning",
+  "ui-inverse-title": "Inverse Proportioning",
+  "ui-recommend": "Recommended Numbers"
 }
