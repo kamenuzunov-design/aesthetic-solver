@@ -42,7 +42,7 @@
   "ui-recommend": "Recommended Numbers",
   "ui-label-result-chain": "Recommended Chain:",
   "ui-copy-share": "Copy",
-  "ui-label-input-chain": "Enter numbers (separated by comma):",
+  "ui-label-input-chain": "Enter minimum 5 numbers (separated by comma):",
   "ui-label-strategy": "Denomination Strategy:",
   "ui-strat-1": "Ends in 00 (100, 200...)",
   "ui-strat-2": "Ends in 0 (10, 20...)",
