@@ -1,10 +1,8 @@
 /**
  * Aesthetic Solver - Основна логика за изчисление
- * Включва "Права задача" с 62 реда и динамична езикова поддръжка.
  */
 
 const AestheticSolver = {
-    // 1. Дефиниране на шестте системи с техните ID-та за връзка с интерфейса
     ratios: [
         { name: "II РПЧ", val: 1.059, id_key: "rpch2" },
         { name: "III РПЧ", val: 1.122, id_key: "rpch3" },
@@ -14,12 +12,10 @@ const AestheticSolver = {
         { name: "ЗС", val: 1.618, id_key: "zs" }
     ],
 
-    // 2. Генератор на колона (изчислява 30 минора и 30 мажора)
     generateColumn: (nom, ratio, displayName) => {
         let col = new Array(62).fill(null);
         const MIN = 1;
         const MAX = 1000;
-
         col[30] = displayName;
         col[31] = nom;
 
@@ -39,7 +35,6 @@ const AestheticSolver = {
         return col;
     },
 
-    // 3. Функция за проверка на 2% отклонение (Хармоничен анализ)
     isHarmonic: (target, reference) => {
         if (!target || !reference || isNaN(target) || isNaN(reference)) return false;
         const diff = Math.abs(target - reference);
@@ -47,18 +42,14 @@ const AestheticSolver = {
     }
 };
 
-let currentMatrix = []; // Глобална променлива за съхранение на изчислените данни
+let currentMatrix = [];
 
-/**
- * Основна функция за генериране на таблицата
- */
 function calculate() {
     const inputField = document.getElementById('baseNum');
     const table = document.getElementById('propsTable');
     if (!inputField || !table) return;
 
     const nom = parseFloat(inputField.value) || 200;
-    
     const lang = window.currentLangData || {};
     const txtNo = lang["th-no"] || "№";
     const txtP = lang["row-p"] || "P"; 
@@ -81,64 +72,111 @@ function calculate() {
 
     for (let i = 0; i < 62; i++) {
         let rowStyle = (i === 30 || i === 31) ? 'style="background-color: #D3D3D3; font-weight: bold;"' : '';
-        let rowLabel = "";
-        if (i < 30) rowLabel = `m${30 - i}`;      
-        else if (i === 30) rowLabel = txtP;  
-        else if (i === 31) rowLabel = txtN;  
-        else rowLabel = `M${i - 31}`;             
-        
+        let rowLabel = (i < 30) ? `m${30 - i}` : (i === 30 ? txtP : (i === 31 ? txtN : `M${i - 31}`));
         html += `<tr ${rowStyle}><td style="border: 1px solid #eee; padding: 3px; font-weight: bold;">${rowLabel}</td>`;
-        
         for (let j = 0; j < currentMatrix.length; j++) {
             let val = currentMatrix[j][i] || "";
             html += `<td id="cell-${j}-${i}" style="border: 1px solid #eee; padding: 3px;">${val}</td>`;
         }
         html += '</tr>';
     }
-    
     table.innerHTML = html + '</tbody>';
 }
 
-/**
- * Функция за бутона "Препоръчани числа"
- */
 function runRecommendedAnalysis() {
     const select = document.getElementById('ratioSelect');
     if (!select) return;
-    
-    const selectedValue = select.value;
-    const index = AestheticSolver.ratios.findIndex(r => r.id_key === selectedValue);
-    
+    const index = AestheticSolver.ratios.findIndex(r => r.id_key === select.value);
     if (index !== -1) {
         runHarmonyAnalysis(index);
-        generateChain(index); // Генерираме веригата при натискане на бутона
+        generateChain(index);
     }
 }
 
-/**
- * Функция за сравнителен анализ спрямо избрана колона (±2%)
- */
 function runHarmonyAnalysis(refColIdx) {
     const colorPrimary = "#77dd77"; 
     const colorMatch = "#e2f3e2";   
-
     const allCells = document.querySelectorAll('#propsTable td');
     allCells.forEach(c => {
         if (c.id) {
             const rowIdx = parseInt(c.id.split('-')[2]);
-            if (rowIdx !== 30 && rowIdx !== 31) {
-                c.style.backgroundColor = "";
-            }
+            if (rowIdx !== 30 && rowIdx !== 31) c.style.backgroundColor = "";
         }
     });
-
     const referenceValues = currentMatrix[refColIdx].filter(v => typeof v === 'number');
-
     for (let col = 0; col < currentMatrix.length; col++) {
         for (let row = 0; row < 62; row++) {
             if (row === 30 || row === 31) continue;
-
             let targetVal = currentMatrix[col][row];
             if (typeof targetVal !== 'number') continue;
-
             const cell = document.getElementById(`cell-${col}-${row}`);
+            if (!cell) continue;
+            if (col === refColIdx) {
+                cell.style.backgroundColor = colorPrimary;
+            } else {
+                if (referenceValues.some(refVal => AestheticSolver.isHarmonic(targetVal, refVal))) {
+                    cell.style.backgroundColor = colorMatch;
+                }
+            }
+        }
+    }
+}
+
+function generateChain(refColIdx) {
+    let recommended = [];
+    const refValues = currentMatrix[refColIdx];
+    for (let row = 0; row < 62; row++) {
+        let targetVal = refValues[row];
+        if (typeof targetVal !== 'number') continue;
+        let matchCount = 1;
+        for (let col = 0; col < currentMatrix.length; col++) {
+            if (col === refColIdx) continue;
+            if (currentMatrix[col].some(val => typeof val === 'number' && AestheticSolver.isHarmonic(targetVal, val))) {
+                matchCount++;
+            }
+        }
+        if (matchCount >= 3) {
+            recommended.push(applyHarmonyRounding(targetVal));
+        }
+    }
+    let uniqueChain = [...new Set(recommended)].sort((a, b) => a - b);
+    const chainInput = document.getElementById('resultChain');
+    if (chainInput) chainInput.value = uniqueChain.join(', ');
+}
+
+function applyHarmonyRounding(val) {
+    let rounded = Math.round(val);
+    if (rounded <= 20) return rounded;
+    const allowed = [0, 2, 4, 5, 6, 8];
+    if (allowed.includes(rounded % 10)) return rounded;
+    return rounded + 1;
+}
+
+function copyAndShare() {
+    const copyText = document.getElementById("resultChain");
+    if (!copyText || !copyText.value) return;
+    copyText.select();
+    navigator.clipboard.writeText(copyText.value);
+    const btn = document.getElementById("ui-copy-share");
+    if (btn) {
+        const original = btn.innerText;
+        btn.innerText = "OK!";
+        setTimeout(() => btn.innerText = original, 2000);
+    }
+}
+
+const CanvasManager = {
+    init: () => {
+        const canvas = document.getElementById('mainCanvas');
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        canvas.width = 600;
+        canvas.height = 400;
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, 600, 400);
+    }
+};
+
+window.addEventListener('load', () => {
+    CanvasManager.init();
+});
