@@ -4,7 +4,10 @@
 
 const AestheticSolver = {
     ratios: [
+		{ name: "II ФСЗ", val: 1.028, id_key: "fsz2" }, // Ново
+        { name: "I РПЧ", val: 1.030, id_key: "rpch1" }, // Ново
         { name: "II РПЧ", val: 1.059, id_key: "rpch2" },
+        { name: "I ФЗС", val: 1.118, id_key: "fsz1" }, // Ново
         { name: "III РПЧ", val: 1.122, id_key: "rpch3" },
         { name: "IV РПЧ", val: 1.259, id_key: "rpch4" },
         { name: "РЗС", val: 1.272, id_key: "rzs" },
@@ -153,6 +156,54 @@ function generateChain(refColIdx) {
     let uniqueChain = [...new Set(recommended)].sort((a, b) => a - b);
     const chainInput = document.getElementById('resultChain');
     if (chainInput) chainInput.value = uniqueChain.join(', ');
+}
+
+function runInverseAnalysis() {
+    const input = document.getElementById('inputChain').value;
+    const nums = input.split(/[, ]+/).map(n => parseFloat(n)).filter(n => !isNaN(n)).sort((a, b) => a - b);
+
+    if (nums.length < 5) {
+        alert("Моля, въведете поне 5 числа.");
+        return;
+    }
+
+    // 1. Избор на Номинал по стратегия
+    const strategy = document.querySelector('input[name="nomStrategy"]:checked').value;
+    let nominal = 0;
+    
+    if (strategy === 'doubleZero') {
+        nominal = nums.find(n => n % 100 === 0) || nums.find(n => n % 10 === 0) || nums[Math.floor(nums.length/2)];
+    } else if (strategy === 'singleZero') {
+        nominal = nums.find(n => n % 10 === 0) || nums[Math.floor(nums.length/2)];
+    } else {
+        nominal = nums[Math.floor(nums.length/2)];
+    }
+
+    // 2. Търсене на най-добра пропорция
+    let bestMatch = { ratioIdx: 0, removed: [], exact: [], score: -1 };
+
+    AestheticSolver.ratios.forEach((ratioObj, idx) => {
+        const idealCol = AestheticSolver.generateColumn(nominal, ratioObj.val, ratioObj.name);
+        let currentMatches = [];
+        let currentRemoved = [];
+
+        nums.forEach(n => {
+            const found = idealCol.some(idealV => typeof idealV === 'number' && AestheticSolver.isHarmonic(n, idealV));
+            if (found) currentMatches.push(n);
+            else currentRemoved.push(n);
+        });
+
+        if (currentMatches.length > bestMatch.score) {
+            bestMatch = { ratioIdx: idx, removed: currentRemoved, exact: currentMatches, score: currentMatches.length };
+        }
+    });
+
+    // 3. Показване на резултатите
+    document.getElementById('inverse-results').style.display = 'block';
+    document.getElementById('res-system').innerText = AestheticSolver.ratios[bestMatch.ratioIdx].name;
+    document.getElementById('res-nominal').innerText = nominal;
+    document.getElementById('res-removed').innerText = bestMatch.removed.join(', ') || 'Няма';
+    document.getElementById('res-exact').innerText = bestMatch.exact.join(', ');
 }
 
 function applyHarmonyRounding(val) {
