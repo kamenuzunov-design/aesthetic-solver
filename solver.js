@@ -4,10 +4,10 @@
 
 const AestheticSolver = {
     ratios: [
-		{ name: "I ФСЗ", val: 1.028, id_key: "fsz1" }, // Ново
-        { name: "I РПЧ", val: 1.030, id_key: "rpch1" }, // Ново
+		{ name: "I ФСЗ", val: 1.028, id_key: "fsz1" }, 
+        { name: "I РПЧ", val: 1.030, id_key: "rpch1" }, 
         { name: "II РПЧ", val: 1.059, id_key: "rpch2" },
-        { name: "II ФЗС", val: 1.118, id_key: "fsz2" }, // Ново
+        { name: "II ФЗС", val: 1.118, id_key: "fsz2" }, 
         { name: "III РПЧ", val: 1.122, id_key: "rpch3" },
         { name: "IV РПЧ", val: 1.259, id_key: "rpch4" },
         { name: "РЗС", val: 1.272, id_key: "rzs" },
