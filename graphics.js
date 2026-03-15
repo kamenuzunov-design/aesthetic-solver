@@ -7,7 +7,7 @@ const GraphicsManager = {
     ctx: null,
     bgImage: new Image(),
     imgOpacity: 0.5,
-    gridSize: 20,
+    gridSize: 5,
     
     points: [], // Масив от {x, y, id}
     lines: [],  // Масив от {p1, p2, id}
