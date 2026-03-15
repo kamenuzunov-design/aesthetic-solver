@@ -47,42 +47,69 @@ const AestheticSolver = {
 
 let currentMatrix = [];
 
+/**
+ * Основна функция за генериране на таблицата (Права задача)
+ */
 function calculate() {
+    // 1. Скриваме резултатите от Обратната задача при нов анализ, за да изчистим интерфейса
+    const inverseResults = document.getElementById('inverse-results');
+    if (inverseResults) {
+        inverseResults.style.display = 'none';
+    }
+
     const inputField = document.getElementById('baseNum');
     const table = document.getElementById('propsTable');
     if (!inputField || !table) return;
 
+    // Взимаме номинала (по подразбиране 200, ако полето е празно)
     const nom = parseFloat(inputField.value) || 200;
+    
+    // Взимаме актуалните преводи от глобалния обект (зареден от lang.js)
     const lang = window.currentLangData || {};
     const txtNo = lang["th-no"] || "№";
     const txtP = lang["row-p"] || "P"; 
     const txtN = lang["row-n"] || "N";
 
+    // Извличаме преведените имена на системите
     let displayNames = AestheticSolver.ratios.map(r => {
         const optEl = document.getElementById(`opt-${r.id_key}`);
         return optEl ? optEl.innerText : r.name;
     });
 
+    // Изграждане на заглавната част (thead)
     let html = `<thead><tr><th style="border: 1px solid #ccc; padding: 5px;">${txtNo}</th>`;
     displayNames.forEach((name, idx) => {
         html += `<th onclick="runHarmonyAnalysis(${idx})" style="cursor:pointer; background:#f0f0f0; border:1px solid #ccc; padding: 10px;">${name}</th>`;
     });
     html += '</tr></thead><tbody>';
 
+    // Генериране на матрицата (всички колони по 62 реда)
     currentMatrix = AestheticSolver.ratios.map((r, idx) => 
         AestheticSolver.generateColumn(nom, r.val, displayNames[idx])
     );
 
+    // Изграждане на тялото на таблицата (tbody)
     for (let i = 0; i < 62; i++) {
+        // Оцветяване на редовете за Пропорция (P) и Номинал (N)
         let rowStyle = (i === 30 || i === 31) ? 'style="background-color: #D3D3D3; font-weight: bold;"' : '';
-        let rowLabel = (i < 30) ? `m${30 - i}` : (i === 30 ? txtP : (i === 31 ? txtN : `M${i - 31}`));
+        
+        // Определяне на етикета в първата колона (m1-30, P, N, M1-30)
+        let rowLabel = "";
+        if (i < 30) rowLabel = `m${30 - i}`;      
+        else if (i === 30) rowLabel = txtP;  
+        else if (i === 31) rowLabel = txtN;  
+        else rowLabel = `M${i - 31}`;             
+        
         html += `<tr ${rowStyle}><td style="border: 1px solid #eee; padding: 3px; font-weight: bold;">${rowLabel}</td>`;
+        
         for (let j = 0; j < currentMatrix.length; j++) {
             let val = currentMatrix[j][i] || "";
+            // ID-то на клетката е важно за последващо оцветяване при анализ
             html += `<td id="cell-${j}-${i}" style="border: 1px solid #eee; padding: 3px;">${val}</td>`;
         }
         html += '</tr>';
     }
+    
     table.innerHTML = html + '</tbody>';
 }
 
