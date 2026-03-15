@@ -47,5 +47,9 @@
   "ui-strat-1": "Завършва на 00 (100, 200...)",
   "ui-strat-2": "Завършва на 0 (10, 20...)",
   "ui-strat-3": "Средно число от веригата",
-  "ui-inverse-analyze": "Анализ на верига"
+  "ui-inverse-analyze": "Анализ на верига",
+  "ui-res-label-system": "Система:",
+  "ui-res-label-nom": "Автоматичен Номинал:",
+  "ui-res-label-removed": "Премахнати (грешни):",
+  "ui-res-label-exact": "Хармонична верига (+-2%):"
 }

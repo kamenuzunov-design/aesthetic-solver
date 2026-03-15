@@ -47,5 +47,9 @@
   "ui-strat-1": "Ends in 00 (100, 200...)",
   "ui-strat-2": "Ends in 0 (10, 20...)",
   "ui-strat-3": "Average of the chain",
-  "ui-inverse-analyze": "Chain Analysis"
+  "ui-inverse-analyze": "Chain Analysis",
+  "ui-res-label-system": "System:",
+  "ui-res-label-nom": "Automatic Nominal:",
+  "ui-res-label-removed": "Removed (incorrect):",
+  "ui-res-label-exact": "Harmonic Chain (+-2%):"
 }
