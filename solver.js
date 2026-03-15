@@ -171,21 +171,48 @@ function generateChain(refColIdx) {
     if (chainInput) chainInput.value = uniqueChain.join(', ');
 }
 
+/**
+ * Функция за Обратно пропорциониране (Анализ на верига)
+ * Намира най-добрата система и номинал за подадена поредица от числа.
+ */
 function runInverseAnalysis() {
     const input = document.getElementById('inputChain').value;
+    // Почистваме входа и сортираме числата
     const nums = input.split(/[, \n\t]+/).map(n => parseFloat(n)).filter(n => !isNaN(n)).sort((a, b) => a - b);
 
     if (nums.length < 5) {
-        alert("Моля, въведете поне 5 числа за коректен анализ.");
+        const txtMin = (window.currentLangData && window.currentLangData["ui-alert-min"]) || "Моля, въведете поне 5 числа за коректен анализ.";
+        alert(txtMin);
         return;
     }
 
-    // 1. АВТОМАТИЧЕН ИЗБОР НА НОМИНАЛ
-    let nominal = nums.find(n => n % 100 === 0) || 
-                  nums.find(n => n % 10 === 0) || 
-                  nums[Math.floor(nums.length / 2)];
+    // --- 1. АВТОМАТИЧЕН ИЗБОР НА НОМИНАЛ (ИНТЕЛИГЕНТЕН) ---
+    const middleIndex = Math.floor(nums.length / 2);
+    
+    // Помощна функция за намиране на най-близкото число до средата на масива
+    const getClosestToMiddle = (candidates) => {
+        if (candidates.length === 0) return null;
+        return candidates.reduce((prev, curr) => {
+            const prevDist = Math.abs(nums.indexOf(prev) - middleIndex);
+            const currDist = Math.abs(nums.indexOf(curr) - middleIndex);
+            return (currDist < prevDist) ? curr : prev;
+        });
+    };
 
-    // 2. ТЪРСЕНЕ НА НАЙ-ДОБРА ПРОПОРЦИЯ
+    // Филтрираме кандидатите по йерархия: 00 -> 0 -> средно
+    const doubles = nums.filter(n => n % 100 === 0);
+    const singles = nums.filter(n => n % 10 === 0);
+
+    let nominal;
+    if (doubles.length > 0) {
+        nominal = getClosestToMiddle(doubles);
+    } else if (singles.length > 0) {
+        nominal = getClosestToMiddle(singles);
+    } else {
+        nominal = nums[middleIndex];
+    }
+
+    // --- 2. ТЪРСЕНЕ НА НАЙ-ДОБРА ПРОПОРЦИЯ ---
     let bestMatch = { ratioIdx: -1, removed: [], exact: [], score: -1 };
 
     AestheticSolver.ratios.forEach((ratioObj, idx) => {
@@ -199,35 +226,36 @@ function runInverseAnalysis() {
             else currentRemoved.push(n);
         });
 
+        // Точкуване на база брой съвпадения
         if (currentMatches.length > bestMatch.score) {
             bestMatch = { ratioIdx: idx, removed: currentRemoved, exact: currentMatches, score: currentMatches.length };
         }
     });
 
-    // 3. СИНХРОНИЗАЦИЯ И ВИЗУАЛИЗАЦИЯ
+    // --- 3. СИНХРОНИЗАЦИЯ И ВИЗУАЛИЗАЦИЯ ---
     if (bestMatch.ratioIdx !== -1) {
-        // Показваме панела с резултати (текстово)
+        const txtNone = (window.currentLangData && window.currentLangData["ui-none"]) || "Няма";
+        
+        // Показваме панела с резултати
         document.getElementById('inverse-results').style.display = 'block';
         document.getElementById('res-system').innerText = AestheticSolver.ratios[bestMatch.ratioIdx].name;
         document.getElementById('res-nominal').innerText = nominal;
-        document.getElementById('res-removed').innerText = bestMatch.removed.join(', ') || 'Няма';
+        document.getElementById('res-removed').innerText = bestMatch.removed.join(', ') || txtNone;
         document.getElementById('res-exact').innerText = bestMatch.exact.join(', ');
 
         // АВТОМАТИЧНО ОБНОВЯВАНЕ НА ОСНОВНАТА ТАБЛИЦА
-        // А) Задаваме новия номинал в лявото поле
         const baseNumInput = document.getElementById('baseNum');
         if (baseNumInput) baseNumInput.value = nominal;
 
-        // Б) Превключваме селектора на намерената система
         const select = document.getElementById('ratioSelect');
         if (select) {
             select.value = AestheticSolver.ratios[bestMatch.ratioIdx].id_key;
         }
         
-        // В) Преизчисляваме цялата таблица
+        // Преизчисляваме таблицата (keepInverse = true, за да не скрием току-що показаните резултати)
         calculate(true);
         
-        // Г) Оцветяваме намерената колона и нейните съвпадения
+        // Оцветяваме намерената колона и нейните съвпадения
         runHarmonyAnalysis(bestMatch.ratioIdx);
     }
 }
