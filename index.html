@@ -103,12 +103,34 @@
 			</div>
 		</section>
 
-        <section id="sec-geometric" class="app-section" style="display: none;">
-            <div style="background: #eee; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
-                <h3 id="ui-geo-title">Геометрично пропорциониране (Canvas)</h3>
-            </div>
-            <canvas id="mainCanvas" style="border:2px solid #2d3d4c; background: white; display: block; margin: 0 auto;"></canvas>
-        </section>
+		<section id="sec-geometric" class="app-section" style="display: none;">
+			<div style="display: flex; gap: 15px; margin-bottom: 15px;">
+				<div class="toolbar" style="background: #eee; padding: 10px; border-radius: 8px; border: 1px solid #ccc; display: flex; flex-direction: column; gap: 10px; min-width: 200px;">
+					<h4 id="ui-geo-tools">Инструменти</h4>
+					<input type="file" id="imgUpload" accept="image/*" style="font-size: 12px;">
+					<div style="display: flex; align-items: center; gap: 5px;">
+						<label style="font-size: 11px;">Opacity:</label>
+						<input type="range" id="imgOpacity" min="0" max="1" step="0.1" value="0.5">
+					</div>
+					<hr>
+					<button onclick="setTool('point')">Точка</button>
+					<button onclick="setTool('line')">Линия</button>
+					<hr>
+					<h4 id="ui-geo-relations">Връзки</h4>
+					<button onclick="applyRelation('horizontal')">Хоризонтално</button>
+					<button onclick="applyRelation('vertical')">Вертикално</button>
+					<button onclick="applyRelation('equal')">Равни</button>
+					<button onclick="applyRelation('fix')">Фиксиране</button>
+					<hr>
+					<button onclick="exportSVG()" style="background: #28a745; color: white;">Запис (SVG)</button>
+				</div>
+
+				<div id="canvas-wrapper" style="position: relative; flex: 1; background: #fff; border: 1px solid #ccc; overflow: hidden; height: 600px;">
+					<canvas id="mainCanvas" style="position: absolute; top: 0; left: 0; z-index: 2;"></canvas>
+					<canvas id="gridCanvas" style="position: absolute; top: 0; left: 0; z-index: 1; pointer-events: none;"></canvas>
+				</div>
+			</div>
+		</section>
 
 		<section id="sec-about" class="app-section" style="display: none;">
 			<div style="background: white; padding: 40px; border-radius: 12px; border: 1px solid #ddd; box-shadow: 0 4px 15px rgba(0,0,0,0.05); max-width: 900px; margin: 0 auto; line-height: 1.6;">
@@ -161,6 +183,7 @@
 
     <script src="lang.js"></script>
     <script src="solver.js"></script>
+	<script src="graphics.js"></script>
     <script>
         function navigateTo(sectionId) {
             document.querySelectorAll('.app-section').forEach(sec => {
