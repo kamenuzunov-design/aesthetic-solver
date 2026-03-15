@@ -51,5 +51,15 @@
   "ui-res-label-system": "System:",
   "ui-res-label-nom": "Automatic Nominal:",
   "ui-res-label-removed": "Removed (incorrect):",
-  "ui-res-label-exact": "Harmonic Chain (+-2%):"
+  "ui-res-label-exact": "Harmonic Chain (+-2%):",
+  "ui-geo-tools": "Tools",
+  "ui-geo-opacity": "Opacity:",
+  "ui-geo-point": "Point",
+  "ui-geo-line": "Line",
+  "ui-geo-relations": "Relations",
+  "ui-rel-horizontal": "Horizontal",
+  "ui-rel-vertical": "Vertical",
+  "ui-rel-equal": "Equal",
+  "ui-rel-fix": "Fix",
+  "ui-geo-export": "Save (SVG)"
 }

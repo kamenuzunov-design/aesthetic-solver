@@ -109,20 +109,20 @@
 					<h4 id="ui-geo-tools">Инструменти</h4>
 					<input type="file" id="imgUpload" accept="image/*" style="font-size: 12px;">
 					<div style="display: flex; align-items: center; gap: 5px;">
-						<label style="font-size: 11px;">Opacity:</label>
-						<input type="range" id="imgOpacity" min="0" max="1" step="0.1" value="0.5">
+					<label id="ui-geo-opacity" style="font-size: 11px;">Прозрачност:</label>
+					<input type="range" id="imgOpacity" min="0" max="1" step="0.1" value="0.5">
 					</div>
 					<hr>
-					<button onclick="setTool('point')">Точка</button>
-					<button onclick="setTool('line')">Линия</button>
+					<button id="ui-geo-point" onclick="setTool('point')">Точка</button>
+					<button id="ui-geo-line" onclick="setTool('line')">Линия</button>
 					<hr>
 					<h4 id="ui-geo-relations">Връзки</h4>
-					<button onclick="applyRelation('horizontal')">Хоризонтално</button>
-					<button onclick="applyRelation('vertical')">Вертикално</button>
-					<button onclick="applyRelation('equal')">Равни</button>
-					<button onclick="applyRelation('fix')">Фиксиране</button>
+					<button id="ui-rel-horizontal" onclick="applyRelation('horizontal')">Хоризонтално</button>
+					<button id="ui-rel-vertical" onclick="applyRelation('vertical')">Вертикално</button>
+					<button id="ui-rel-equal" onclick="applyRelation('equal')">Равни</button>
+					<button id="ui-rel-fix" onclick="applyRelation('fix')">Фиксиране</button>
 					<hr>
-					<button onclick="exportSVG()" style="background: #28a745; color: white;">Запис (SVG)</button>
+					<button id="ui-geo-export" onclick="exportSVG()" style="background: #28a745; color: white; border: none; padding: 8px; border-radius: 4px; cursor: pointer;">Запис (SVG)</button>
 				</div>
 
 				<div id="canvas-wrapper" style="position: relative; flex: 1; background: #fff; border: 1px solid #ccc; overflow: hidden; height: 600px;">

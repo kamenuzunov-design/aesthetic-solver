@@ -51,5 +51,15 @@
   "ui-res-label-system": "Система:",
   "ui-res-label-nom": "Автоматичен Номинал:",
   "ui-res-label-removed": "Премахнати (грешни):",
-  "ui-res-label-exact": "Хармонична верига (+-2%):"
+  "ui-res-label-exact": "Хармонична верига (+-2%):",
+  "ui-geo-tools": "Инструменти",
+  "ui-geo-opacity": "Прозрачност:",
+  "ui-geo-point": "Точка",
+  "ui-geo-line": "Линия",
+  "ui-geo-relations": "Връзки",
+  "ui-rel-horizontal": "Хоризонтално",
+  "ui-rel-vertical": "Вертикално",
+  "ui-rel-equal": "Равни",
+  "ui-rel-fix": "Фиксиране",
+  "ui-geo-export": "Запис (SVG)"
 }
