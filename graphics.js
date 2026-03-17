@@ -255,4 +255,11 @@ function exportSVG() {
     alert("SVG Export logic is being developed."); 
 }
 
-function
+function applyRelation(type) {
+    console.log("Прилагане на връзка:", type);
+}
+
+// Инициализация
+window.addEventListener('load', () => {
+    GraphicsManager.init();
+});
