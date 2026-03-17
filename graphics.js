@@ -262,6 +262,49 @@ function applyRelation(type) {
     console.log("Прилагане на връзка:", type);
 }
 
+// Добави тези функции в края на GraphicsManager обекта или като отделни методи
+
+applyRelation: function(type) {
+    if (this.selectedObjects.length === 0) {
+        alert("Моля, първо изберете линия или точки.");
+        return;
+    }
+
+    switch(type) {
+        case 'horizontal':
+            this.makeHorizontal();
+            break;
+        case 'vertical':
+            this.makeVertical();
+            break;
+    }
+    this.render();
+},
+
+makeHorizontal: function() {
+    // В момента ще го приложим върху последната начертана линия като тест
+    if (this.lines.length > 0) {
+        let lastLine = this.lines[this.lines.length - 1];
+        // Приравняваме Y координатите към средната стойност
+        let avgY = (lastLine.p1.y + lastLine.p2.y) / 2;
+        lastLine.p1.y = lastLine.p2.y = this.snap(avgY);
+        
+        // Трябва да обновим и съответните точки в масива points
+        this.rebuildPoints();
+    }
+},
+
+makeVertical: function() {
+    if (this.lines.length > 0) {
+        let lastLine = this.lines[this.lines.length - 1];
+        // Приравняваме X координатите към средната стойност
+        let avgX = (lastLine.p1.x + lastLine.p2.x) / 2;
+        lastLine.p1.x = lastLine.p2.x = this.snap(avgX);
+        
+        this.rebuildPoints();
+    }
+}
+
 window.addEventListener('load', () => {
     GraphicsManager.init();
 });
