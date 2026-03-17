@@ -1,6 +1,5 @@
 /**
  * Aesthetic Solver - Графичен модул (graphics.js)
- * Пълен код с автоматично векторизиране, интерактивна редакция и коректни пропорции
  */
 
 const GraphicsManager = {
@@ -24,6 +23,7 @@ const GraphicsManager = {
 
     init: function() {
         this.canvas = document.getElementById('mainCanvas');
+        if (!this.canvas) return;
         this.ctx = this.canvas.getContext('2d');
         this.gridCanvas = document.getElementById('gridCanvas');
         this.gridCtx = this.gridCanvas.getContext('2d');
@@ -34,7 +34,6 @@ const GraphicsManager = {
         this.render();
     },
 
-    // Оразмеряване на Canvas според контейнера (първоначално)
     resize: function() {
         const wrapper = document.getElementById('canvas-wrapper');
         if (!wrapper) return;
@@ -42,7 +41,6 @@ const GraphicsManager = {
         this.canvas.height = this.gridCanvas.height = wrapper.clientHeight;
     },
 
-    // НОВО: Оразмеряване спрямо пропорциите на заредената снимка
     resizeToImage: function() {
         if (!this.bgImage.src) return;
 
@@ -50,7 +48,6 @@ const GraphicsManager = {
         const maxWidth = wrapper.clientWidth;
         const maxHeight = wrapper.clientHeight;
 
-        // Изчисляваме мащаба, за да се събере снимката в екрана без деформация
         const ratio = Math.min(maxWidth / this.bgImage.naturalWidth, maxHeight / this.bgImage.naturalHeight);
 
         const newWidth = this.bgImage.naturalWidth * ratio;
@@ -63,6 +60,7 @@ const GraphicsManager = {
     },
 
     drawGrid: function() {
+        if (!this.gridCtx) return;
         this.gridCtx.clearRect(0, 0, this.gridCanvas.width, this.gridCanvas.height);
         this.gridCtx.strokeStyle = "#e0e0e0";
         this.gridCtx.lineWidth = 0.5;
@@ -80,7 +78,6 @@ const GraphicsManager = {
         return Math.round(val / this.gridSize) * this.gridSize;
     },
 
-    // --- АВТОМАТИЗАЦИЯ ---
     runAutoVectorization: function() {
         if (!this.bgImage.src) return;
         const tempCanvas = document.createElement('canvas');
@@ -106,8 +103,6 @@ const GraphicsManager = {
             for (let x = step; x < width - step; x += step) {
                 const offset = (y * width + x) * 4;
                 const brightness = (pixels[offset] + pixels[offset+1] + pixels[offset+2]) / 3;
-                
-                // Проверка по X и по Y за по-добро откриване на вертикали
                 const rightB = (pixels[(y * width + (x + 1)) * 4] + pixels[(y * width + (x + 1)) * 4 + 1] + pixels[(y * width + (x + 1)) * 4 + 2]) / 3;
                 const downB = (pixels[((y + 1) * width + x) * 4] + pixels[((y + 1) * width + x) * 4 + 1] + pixels[((y + 1) * width + x) * 4 + 2]) / 3;
                 
@@ -137,29 +132,34 @@ const GraphicsManager = {
         });
     },
 
-    // --- ИНТЕРФЕЙС И СЪБИТИЯ ---
     attachListeners: function() {
         this.canvas.addEventListener('mousedown', (e) => this.handleDown(e));
         this.canvas.addEventListener('mousemove', (e) => this.handleMove(e));
         window.addEventListener('mouseup', () => this.handleUp());
 
-        document.getElementById('imgUpload').addEventListener('change', (e) => {
-            const reader = new FileReader();
-            reader.onload = (f) => {
-                this.bgImage.onload = () => { 
-                    this.resizeToImage(); // Оразмеряваме Canvas спрямо снимката
-                    this.runAutoVectorization(); 
-                    this.render(); 
+        const upload = document.getElementById('imgUpload');
+        if (upload) {
+            upload.addEventListener('change', (e) => {
+                const reader = new FileReader();
+                reader.onload = (f) => {
+                    this.bgImage.onload = () => { 
+                        this.resizeToImage();
+                        this.runAutoVectorization(); 
+                        this.render(); 
+                    };
+                    this.bgImage.src = f.target.result;
                 };
-                this.bgImage.src = f.target.result;
-            };
-            reader.readAsDataURL(e.target.files[0]);
-        });
+                if (e.target.files[0]) reader.readAsDataURL(e.target.files[0]);
+            });
+        }
 
-        document.getElementById('imgOpacity').addEventListener('input', (e) => {
-            this.imgOpacity = e.target.value;
-            this.render();
-        });
+        const opacityRange = document.getElementById('imgOpacity');
+        if (opacityRange) {
+            opacityRange.addEventListener('input', (e) => {
+                this.imgOpacity = e.target.value;
+                this.render();
+            });
+        }
     },
 
     handleDown: function(e) {
@@ -211,6 +211,7 @@ const GraphicsManager = {
     },
 
     render: function() {
+        if (!this.ctx) return;
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
         if (this.bgImage.src) {
             this.ctx.globalAlpha = this.imgOpacity;
@@ -218,7 +219,6 @@ const GraphicsManager = {
             this.ctx.globalAlpha = 1.0;
         }
 
-        // ЛИНИИ: 1 пиксел дебелина
         this.ctx.strokeStyle = "#2d3d4c";
         this.ctx.lineWidth = 1;
         this.lines.forEach(l => {
@@ -237,7 +237,6 @@ const GraphicsManager = {
             this.ctx.setLineDash([]);
         }
 
-        // ТОЧКИ: 1 пиксел диаметър (радиус 0.5)
         this.points.forEach(p => {
             this.ctx.fillStyle = (this.draggedPoint === p) ? "#28a745" : "#ff4444";
             this.ctx.beginPath();
@@ -247,7 +246,13 @@ const GraphicsManager = {
     }
 };
 
-function setTool(tool) { GraphicsManager.currentTool = tool; }
-function exportSVG() { alert("SVG Export logic ready to be implemented."); }
+/** ГЛОБАЛНИ ФУНКЦИИ ЗА БУТОНИТЕ **/
+function setTool(tool) { 
+    GraphicsManager.currentTool = tool; 
+}
 
-window.addEventListener('load', () => GraphicsManager.init());
+function exportSVG() { 
+    alert("SVG Export logic is being developed."); 
+}
+
+function
