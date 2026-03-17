@@ -240,7 +240,7 @@ const GraphicsManager = {
         this.points.forEach(p => {
             this.ctx.fillStyle = (this.draggedPoint === p) ? "#28a745" : "#ff4444";
             this.ctx.beginPath();
-            this.ctx.arc(p.x, p.y, 0.5, 0, Math.PI * 2); 
+            this.ctx.arc(p.x, p.y, 1, 0, Math.PI * 2); 
             this.ctx.fill();
         });
     }
