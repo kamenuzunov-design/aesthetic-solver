@@ -193,7 +193,7 @@ const GraphicsManager = {
         }
 
         this.ctx.strokeStyle = "#2d3d4c";
-        this.ctx.lineWidth = 1.5;
+        this.ctx.lineWidth = 1;
         this.lines.forEach(l => {
             this.ctx.beginPath();
             this.ctx.moveTo(l.p1.x, l.p1.y);
@@ -213,11 +213,48 @@ const GraphicsManager = {
         this.points.forEach(p => {
             this.ctx.fillStyle = (this.draggedPoint === p) ? "#28a745" : "#ff4444";
             this.ctx.beginPath();
-            this.ctx.arc(p.x, p.y, 4, 0, Math.PI * 2);
+            this.ctx.arc(p.x, p.y, 1, 0, Math.PI * 2);
             this.ctx.fill();
         });
     }
 };
+
+
+resizeToImage: function() {
+    if (!this.bgImage.src) return;
+
+    const wrapper = document.getElementById('canvas-wrapper');
+    const maxWidth = wrapper.clientWidth;
+    const maxHeight = wrapper.clientHeight;
+
+    // Изчисляваме мащаба, за да се събере снимката в екрана
+    const ratio = Math.min(maxWidth / this.bgImage.naturalWidth, maxHeight / this.bgImage.naturalHeight);
+
+    // Новите размери на canvas
+    const newWidth = this.bgImage.naturalWidth * ratio;
+    const newHeight = this.bgImage.naturalHeight * ratio;
+
+    // Прилагаме ги към двата canvas-а
+    this.canvas.width = this.gridCanvas.width = newWidth;
+    this.canvas.height = this.gridCanvas.height = newHeight;
+
+    // Прерисуваме мрежата за новия размер
+    this.drawGrid();
+},
+
+// Обнови събитието за зареждане на снимка в attachListeners
+document.getElementById('imgUpload').addEventListener('change', (e) => {
+    const reader = new FileReader();
+    reader.onload = (f) => {
+        this.bgImage.onload = () => { 
+            this.resizeToImage(); // Първо оразмеряваме
+            this.runAutoVectorization(); // После векторизираме
+            this.render(); 
+        };
+        this.bgImage.src = f.target.result;
+    };
+    reader.readAsDataURL(e.target.files[0]);
+});
 
 function setTool(tool) { GraphicsManager.currentTool = tool; }
 function exportSVG() { alert("SVG Export logic coming soon..."); }
