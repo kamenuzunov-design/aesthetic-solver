@@ -164,15 +164,17 @@ const GraphicsManager = {
 
     handleDown: function(e) {
         const rect = this.canvas.getBoundingClientRect();
-        const x = this.snap(e.clientX - rect.left);
-        const y = this.snap(e.clientY - rect.top);
+        // Взимаме точните координати без прилепване за началния избор
+        const mouseX = e.clientX - rect.left;
+        const mouseY = e.clientY - rect.top;
 
-        this.draggedPoint = this.points.find(p => Math.abs(p.x - x) < 10 && Math.abs(p.y - y) < 10);
+        // ТОЛЕРАНС 5 ПИКСЕЛА при търсене на точка
+        this.draggedPoint = this.points.find(p => Math.abs(p.x - mouseX) <= 5 && Math.abs(p.y - mouseY) <= 5);
 
         if (!this.draggedPoint && this.currentTool === 'line') {
             this.isDrawing = true;
-            this.startPoint = { x, y };
-            this.tempEndPoint = { x, y };
+            this.startPoint = { x: this.snap(mouseX), y: this.snap(mouseY) };
+            this.tempEndPoint = { x: this.snap(mouseX), y: this.snap(mouseY) };
         }
         this.render();
     },
@@ -240,13 +242,14 @@ const GraphicsManager = {
         this.points.forEach(p => {
             this.ctx.fillStyle = (this.draggedPoint === p) ? "#28a745" : "#ff4444";
             this.ctx.beginPath();
+            // РАДИУС 1.5 ПИКСЕЛА
             this.ctx.arc(p.x, p.y, 1.5, 0, Math.PI * 2); 
             this.ctx.fill();
         });
     }
 };
 
-/** ГЛОБАЛНИ ФУНКЦИИ ЗА БУТОНИТЕ **/
+/** ГЛОБАЛНИ ФУНКЦИИ **/
 function setTool(tool) { 
     GraphicsManager.currentTool = tool; 
 }
@@ -259,7 +262,6 @@ function applyRelation(type) {
     console.log("Прилагане на връзка:", type);
 }
 
-// Инициализация
 window.addEventListener('load', () => {
     GraphicsManager.init();
 });
