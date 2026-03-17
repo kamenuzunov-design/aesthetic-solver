@@ -1,22 +1,27 @@
 /**
  * Aesthetic Solver - Графичен модул (graphics.js)
+ * Пълен код с автоматично векторизиране и интерактивна редакция
  */
 
 const GraphicsManager = {
     canvas: null,
     ctx: null,
+    gridCanvas: null,
+    gridCtx: null,
     bgImage: new Image(),
     imgOpacity: 0.5,
-    gridSize: 10,
+    gridSize: 20,
     
-    points: [], // Масив от {x, y, id}
-    lines: [],  // Масив от {p1, p2, id}
+    points: [], // {x, y, id}
+    lines: [],  // {p1, p2, id}
     
     currentTool: null,
     isDrawing: false,
+    draggedPoint: null,
+    selectedObjects: [],
     startPoint: null,
     tempEndPoint: null,
-    
+
     init: function() {
         this.canvas = document.getElementById('mainCanvas');
         this.ctx = this.canvas.getContext('2d');
@@ -31,6 +36,7 @@ const GraphicsManager = {
 
     resize: function() {
         const wrapper = document.getElementById('canvas-wrapper');
+        if (!wrapper) return;
         this.canvas.width = this.gridCanvas.width = wrapper.clientWidth;
         this.canvas.height = this.gridCanvas.height = wrapper.clientHeight;
     },
@@ -49,18 +55,75 @@ const GraphicsManager = {
         this.gridCtx.stroke();
     },
 
-    // Математическо "прилепване" към мрежата
-    snapToGrid: function(val) {
+    snap: function(val) {
         return Math.round(val / this.gridSize) * this.gridSize;
     },
 
+    // --- АВТОМАТИЗАЦИЯ ---
+    runAutoVectorization: function() {
+        if (!this.bgImage.src) return;
+        const tempCanvas = document.createElement('canvas');
+        const tempCtx = tempCanvas.getContext('2d');
+        tempCanvas.width = this.canvas.width;
+        tempCanvas.height = this.canvas.height;
+        tempCtx.drawImage(this.bgImage, 0, 0, tempCanvas.width, tempCanvas.height);
+
+        const imageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+        this.lines = this.extractVectors(imageData);
+        this.rebuildPoints();
+        this.render();
+    },
+
+    extractVectors: function(imageData) {
+        const width = imageData.width;
+        const height = imageData.height;
+        const pixels = imageData.data;
+        const vectors = [];
+        const step = 20; 
+
+        for (let y = step; y < height - step; y += step) {
+            for (let x = step; x < width - step; x += step) {
+                const offset = (y * width + x) * 4;
+                const brightness = (pixels[offset] + pixels[offset+1] + pixels[offset+2]) / 3;
+                const rightB = (pixels[(y * width + (x + 1)) * 4] + pixels[(y * width + (x + 1)) * 4 + 1] + pixels[(y * width + (x + 1)) * 4 + 2]) / 3;
+                
+                if (Math.abs(brightness - rightB) > 30) {
+                    vectors.push({
+                        p1: { x: this.snap(x), y: this.snap(y) },
+                        p2: { x: this.snap(x), y: this.snap(y + step) },
+                        id: Math.random()
+                    });
+                }
+            }
+        }
+        return vectors;
+    },
+
+    rebuildPoints: function() {
+        const unique = new Set();
+        this.points = [];
+        this.lines.forEach(l => {
+            [l.p1, l.p2].forEach(p => {
+                const key = `${p.x},${p.y}`;
+                if (!unique.has(key)) {
+                    unique.add(key);
+                    this.points.push({ x: p.x, y: p.y, id: Math.random() });
+                }
+            });
+        });
+    },
+
+    // --- ИНТЕРФЕЙС И СЪБИТИЯ ---
     attachListeners: function() {
-        // Качване на снимка
+        this.canvas.addEventListener('mousedown', (e) => this.handleDown(e));
+        this.canvas.addEventListener('mousemove', (e) => this.handleMove(e));
+        window.addEventListener('mouseup', () => this.handleUp());
+
         document.getElementById('imgUpload').addEventListener('change', (e) => {
             const reader = new FileReader();
-            reader.onload = (event) => {
-                this.bgImage.onload = () => this.render();
-                this.bgImage.src = event.target.result;
+            reader.onload = (f) => {
+                this.bgImage.onload = () => { this.render(); this.runAutoVectorization(); };
+                this.bgImage.src = f.target.result;
             };
             reader.readAsDataURL(e.target.files[0]);
         });
@@ -69,24 +132,17 @@ const GraphicsManager = {
             this.imgOpacity = e.target.value;
             this.render();
         });
-
-        // Работа с мишката върху Canvas
-        this.canvas.addEventListener('mousedown', (e) => this.handleMouseDown(e));
-        this.canvas.addEventListener('mousemove', (e) => this.handleMouseMove(e));
-        window.addEventListener('mouseup', () => this.handleMouseUp());
     },
 
-    handleMouseDown: function(e) {
+    handleDown: function(e) {
         const rect = this.canvas.getBoundingClientRect();
-        const rawX = e.clientX - rect.left;
-        const rawY = e.clientY - rect.top;
-        
-        const x = this.snapToGrid(rawX);
-        const y = this.snapToGrid(rawY);
+        const x = this.snap(e.clientX - rect.left);
+        const y = this.snap(e.clientY - rect.top);
 
-        if (this.currentTool === 'point') {
-            this.addPoint(x, y);
-        } else if (this.currentTool === 'line') {
+        // Търсим дали е кликнато върху съществуваща точка за влачене
+        this.draggedPoint = this.points.find(p => Math.abs(p.x - x) < 10 && Math.abs(p.y - y) < 10);
+
+        if (!this.draggedPoint && this.currentTool === 'line') {
             this.isDrawing = true;
             this.startPoint = { x, y };
             this.tempEndPoint = { x, y };
@@ -94,63 +150,58 @@ const GraphicsManager = {
         this.render();
     },
 
-    handleMouseMove: function(e) {
-        if (!this.isDrawing) return;
+    handleMove: function(e) {
         const rect = this.canvas.getBoundingClientRect();
-        this.tempEndPoint = {
-            x: this.snapToGrid(e.clientX - rect.left),
-            y: this.snapToGrid(e.clientY - rect.top)
-        };
+        const x = this.snap(e.clientX - rect.left);
+        const y = this.snap(e.clientY - rect.top);
+
+        if (this.draggedPoint) {
+            // Обновяваме координатите на точката и всички линии, свързани с нея
+            const oldX = this.draggedPoint.x;
+            const oldY = this.draggedPoint.y;
+            this.draggedPoint.x = x;
+            this.draggedPoint.y = y;
+
+            this.lines.forEach(l => {
+                if (l.p1.x === oldX && l.p1.y === oldY) { l.p1.x = x; l.p1.y = y; }
+                if (l.p2.x === oldX && l.p2.y === oldY) { l.p2.x = x; l.p2.y = y; }
+            });
+        } else if (this.isDrawing) {
+            this.tempEndPoint = { x, y };
+        }
         this.render();
     },
 
-    handleMouseUp: function() {
+    handleUp: function() {
         if (this.isDrawing && this.currentTool === 'line') {
             if (this.startPoint.x !== this.tempEndPoint.x || this.startPoint.y !== this.tempEndPoint.y) {
-                this.addLine(this.startPoint, this.tempEndPoint);
+                this.lines.push({ p1: {...this.startPoint}, p2: {...this.tempEndPoint}, id: Math.random() });
+                this.rebuildPoints();
             }
         }
+        this.draggedPoint = null;
         this.isDrawing = false;
-        this.startPoint = null;
         this.render();
-    },
-
-    addPoint: function(x, y) {
-        if (!this.points.some(p => p.x === x && p.y === y)) {
-            this.points.push({ x, y, id: Date.now() });
-        }
-    },
-
-    addLine: function(p1, p2) {
-        // Добавяме точките, ако не съществуват
-        this.addPoint(p1.x, p1.y);
-        this.addPoint(p2.x, p2.y);
-        this.lines.push({ p1, p2, id: Date.now() });
     },
 
     render: function() {
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-        
-        // 1. Фоново изображение
         if (this.bgImage.src) {
-            this.ctx.save();
             this.ctx.globalAlpha = this.imgOpacity;
-            this.ctx.drawImage(this.bgImage, 0, 0);
-            this.ctx.restore();
+            this.ctx.drawImage(this.bgImage, 0, 0, this.canvas.width, this.canvas.height);
+            this.ctx.globalAlpha = 1.0;
         }
-        
-        // 2. Рисуване на линиите
+
         this.ctx.strokeStyle = "#2d3d4c";
-        this.ctx.lineWidth = 2;
-        this.lines.forEach(line => {
+        this.ctx.lineWidth = 1.5;
+        this.lines.forEach(l => {
             this.ctx.beginPath();
-            this.ctx.moveTo(line.p1.x, line.p1.y);
-            this.ctx.lineTo(line.p2.x, line.p2.y);
+            this.ctx.moveTo(l.p1.x, l.p1.y);
+            this.ctx.lineTo(l.p2.x, l.p2.y);
             this.ctx.stroke();
         });
 
-        // 3. Рисуване на временна линия (докато чертаем)
-        if (this.isDrawing && this.startPoint && this.tempEndPoint) {
+        if (this.isDrawing) {
             this.ctx.setLineDash([5, 5]);
             this.ctx.beginPath();
             this.ctx.moveTo(this.startPoint.x, this.startPoint.y);
@@ -159,9 +210,8 @@ const GraphicsManager = {
             this.ctx.setLineDash([]);
         }
 
-        // 4. Рисуване на точките
-        this.ctx.fillStyle = "#ff4444";
         this.points.forEach(p => {
+            this.ctx.fillStyle = (this.draggedPoint === p) ? "#28a745" : "#ff4444";
             this.ctx.beginPath();
             this.ctx.arc(p.x, p.y, 4, 0, Math.PI * 2);
             this.ctx.fill();
@@ -169,12 +219,7 @@ const GraphicsManager = {
     }
 };
 
-// Глобални функции за бутоните
-function setTool(tool) {
-    GraphicsManager.currentTool = tool;
-}
+function setTool(tool) { GraphicsManager.currentTool = tool; }
+function exportSVG() { alert("SVG Export logic coming soon..."); }
 
-// Стартиране
-window.addEventListener('load', () => {
-    GraphicsManager.init();
-});
+window.addEventListener('load', () => GraphicsManager.init());
