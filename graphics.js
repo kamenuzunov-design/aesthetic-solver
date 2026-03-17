@@ -11,13 +11,12 @@ const GraphicsManager = {
     imgOpacity: 0.5,
     gridSize: 20,
     
-    points: [], // {x, y, id}
-    lines: [],  // {p1, p2, id}
+    points: [], 
+    lines: [],  
     
     currentTool: null,
     isDrawing: false,
     draggedPoint: null,
-    selectedObjects: [],
     startPoint: null,
     tempEndPoint: null,
 
@@ -43,19 +42,10 @@ const GraphicsManager = {
 
     resizeToImage: function() {
         if (!this.bgImage.src) return;
-
         const wrapper = document.getElementById('canvas-wrapper');
-        const maxWidth = wrapper.clientWidth;
-        const maxHeight = wrapper.clientHeight;
-
-        const ratio = Math.min(maxWidth / this.bgImage.naturalWidth, maxHeight / this.bgImage.naturalHeight);
-
-        const newWidth = this.bgImage.naturalWidth * ratio;
-        const newHeight = this.bgImage.naturalHeight * ratio;
-
-        this.canvas.width = this.gridCanvas.width = newWidth;
-        this.canvas.height = this.gridCanvas.height = newHeight;
-
+        const ratio = Math.min(wrapper.clientWidth / this.bgImage.naturalWidth, wrapper.clientHeight / this.bgImage.naturalHeight);
+        this.canvas.width = this.gridCanvas.width = this.bgImage.naturalWidth * ratio;
+        this.canvas.height = this.gridCanvas.height = this.bgImage.naturalHeight * ratio;
         this.drawGrid();
     },
 
@@ -78,6 +68,7 @@ const GraphicsManager = {
         return Math.round(val / this.gridSize) * this.gridSize;
     },
 
+    // ПОДОБРЕНО ВЕКТОРИЗИРАНЕ
     runAutoVectorization: function() {
         if (!this.bgImage.src) return;
         const tempCanvas = document.createElement('canvas');
@@ -97,19 +88,32 @@ const GraphicsManager = {
         const height = imageData.height;
         const pixels = imageData.data;
         const vectors = [];
-        const step = 20; 
+        const step = 15; // По-малък ход за по-голяма прецизност
+        const threshold = 40; // Праг на чувствителност
 
         for (let y = step; y < height - step; y += step) {
             for (let x = step; x < width - step; x += step) {
-                const offset = (y * width + x) * 4;
-                const brightness = (pixels[offset] + pixels[offset+1] + pixels[offset+2]) / 3;
-                const rightB = (pixels[(y * width + (x + 1)) * 4] + pixels[(y * width + (x + 1)) * 4 + 1] + pixels[(y * width + (x + 1)) * 4 + 2]) / 3;
-                const downB = (pixels[((y + 1) * width + x) * 4] + pixels[((y + 1) * width + x) * 4 + 1] + pixels[((y + 1) * width + x) * 4 + 2]) / 3;
-                
-                if (Math.abs(brightness - rightB) > 30 || Math.abs(brightness - downB) > 30) {
+                const idx = (y * width + x) * 4;
+                const brightness = (pixels[idx] + pixels[idx+1] + pixels[idx+2]) / 3;
+
+                // Проверка за Вертикален ръб (разлика по X)
+                const rightIdx = (y * width + (x + 2)) * 4;
+                const rightB = (pixels[rightIdx] + pixels[rightIdx+1] + pixels[rightIdx+2]) / 3;
+                if (Math.abs(brightness - rightB) > threshold) {
                     vectors.push({
                         p1: { x: this.snap(x), y: this.snap(y) },
                         p2: { x: this.snap(x), y: this.snap(y + step) },
+                        id: Math.random()
+                    });
+                }
+
+                // Проверка за Хоризонтален ръб (разлика по Y)
+                const downIdx = ((y + 2) * width + x) * 4;
+                const downB = (pixels[downIdx] + pixels[downIdx+1] + pixels[downIdx+2]) / 3;
+                if (Math.abs(brightness - downB) > threshold) {
+                    vectors.push({
+                        p1: { x: this.snap(x), y: this.snap(y) },
+                        p2: { x: this.snap(x + step), y: this.snap(y) },
                         id: Math.random()
                     });
                 }
@@ -137,38 +141,31 @@ const GraphicsManager = {
         this.canvas.addEventListener('mousemove', (e) => this.handleMove(e));
         window.addEventListener('mouseup', () => this.handleUp());
 
-        const upload = document.getElementById('imgUpload');
-        if (upload) {
-            upload.addEventListener('change', (e) => {
-                const reader = new FileReader();
-                reader.onload = (f) => {
-                    this.bgImage.onload = () => { 
-                        this.resizeToImage();
-                        this.runAutoVectorization(); 
-                        this.render(); 
-                    };
-                    this.bgImage.src = f.target.result;
+        document.getElementById('imgUpload').addEventListener('change', (e) => {
+            const reader = new FileReader();
+            reader.onload = (f) => {
+                this.bgImage.onload = () => { 
+                    this.resizeToImage();
+                    this.runAutoVectorization();
+                    this.render(); 
                 };
-                if (e.target.files[0]) reader.readAsDataURL(e.target.files[0]);
-            });
-        }
+                this.bgImage.src = f.target.result;
+            };
+            if (e.target.files[0]) reader.readAsDataURL(e.target.files[0]);
+        });
 
-        const opacityRange = document.getElementById('imgOpacity');
-        if (opacityRange) {
-            opacityRange.addEventListener('input', (e) => {
-                this.imgOpacity = e.target.value;
-                this.render();
-            });
-        }
+        document.getElementById('imgOpacity').addEventListener('input', (e) => {
+            this.imgOpacity = e.target.value;
+            this.render();
+        });
     },
 
     handleDown: function(e) {
         const rect = this.canvas.getBoundingClientRect();
-        // Взимаме точните координати без прилепване за началния избор
         const mouseX = e.clientX - rect.left;
         const mouseY = e.clientY - rect.top;
 
-        // ТОЛЕРАНС 5 ПИКСЕЛА при търсене на точка
+        // Толеранс 5 пиксела за хващане
         this.draggedPoint = this.points.find(p => Math.abs(p.x - mouseX) <= 5 && Math.abs(p.y - mouseY) <= 5);
 
         if (!this.draggedPoint && this.currentTool === 'line') {
@@ -189,7 +186,6 @@ const GraphicsManager = {
             const oldY = this.draggedPoint.y;
             this.draggedPoint.x = x;
             this.draggedPoint.y = y;
-
             this.lines.forEach(l => {
                 if (l.p1.x === oldX && l.p1.y === oldY) { l.p1.x = x; l.p1.y = y; }
                 if (l.p2.x === oldX && l.p2.y === oldY) { l.p2.x = x; l.p2.y = y; }
@@ -201,7 +197,7 @@ const GraphicsManager = {
     },
 
     handleUp: function() {
-        if (this.isDrawing && this.currentTool === 'line') {
+        if (this.isDrawing) {
             if (this.startPoint.x !== this.tempEndPoint.x || this.startPoint.y !== this.tempEndPoint.y) {
                 this.lines.push({ p1: {...this.startPoint}, p2: {...this.tempEndPoint}, id: Math.random() });
                 this.rebuildPoints();
@@ -231,7 +227,7 @@ const GraphicsManager = {
         });
 
         if (this.isDrawing) {
-            this.ctx.setLineDash([5, 5]);
+            this.ctx.setLineDash([3, 3]);
             this.ctx.beginPath();
             this.ctx.moveTo(this.startPoint.x, this.startPoint.y);
             this.ctx.lineTo(this.tempEndPoint.x, this.tempEndPoint.y);
@@ -239,10 +235,9 @@ const GraphicsManager = {
             this.ctx.setLineDash([]);
         }
 
+        this.ctx.fillStyle = "#ff4444";
         this.points.forEach(p => {
-            this.ctx.fillStyle = (this.draggedPoint === p) ? "#28a745" : "#ff4444";
             this.ctx.beginPath();
-            // РАДИУС 1.5 ПИКСЕЛА
             this.ctx.arc(p.x, p.y, 1.5, 0, Math.PI * 2); 
             this.ctx.fill();
         });
@@ -250,61 +245,17 @@ const GraphicsManager = {
 };
 
 /** ГЛОБАЛНИ ФУНКЦИИ **/
-function setTool(tool) { 
-    GraphicsManager.currentTool = tool; 
-}
-
-function exportSVG() { 
-    alert("SVG Export logic is being developed."); 
-}
-
-function applyRelation(type) {
-    console.log("Прилагане на връзка:", type);
-}
-
-// Добави тези функции в края на GraphicsManager обекта или като отделни методи
-
-applyRelation: function(type) {
-    if (this.selectedObjects.length === 0) {
-        alert("Моля, първо изберете линия или точки.");
-        return;
-    }
-
-    switch(type) {
-        case 'horizontal':
-            this.makeHorizontal();
-            break;
-        case 'vertical':
-            this.makeVertical();
-            break;
-    }
-    this.render();
-},
-
-makeHorizontal: function() {
-    // В момента ще го приложим върху последната начертана линия като тест
-    if (this.lines.length > 0) {
-        let lastLine = this.lines[this.lines.length - 1];
-        // Приравняваме Y координатите към средната стойност
-        let avgY = (lastLine.p1.y + lastLine.p2.y) / 2;
-        lastLine.p1.y = lastLine.p2.y = this.snap(avgY);
-        
-        // Трябва да обновим и съответните точки в масива points
-        this.rebuildPoints();
-    }
-},
-
-makeVertical: function() {
-    if (this.lines.length > 0) {
-        let lastLine = this.lines[this.lines.length - 1];
-        // Приравняваме X координатите към средната стойност
-        let avgX = (lastLine.p1.x + lastLine.p2.x) / 2;
-        lastLine.p1.x = lastLine.p2.x = this.snap(avgX);
-        
-        this.rebuildPoints();
+function setTool(tool) { GraphicsManager.currentTool = tool; }
+function exportSVG() { alert("SVG Export..."); }
+function applyRelation(type) { 
+    if (type === 'horizontal') {
+        if (GraphicsManager.lines.length > 0) {
+            let line = GraphicsManager.lines[GraphicsManager.lines.length - 1];
+            line.p2.y = line.p1.y;
+            GraphicsManager.rebuildPoints();
+            GraphicsManager.render();
+        }
     }
 }
 
-window.addEventListener('load', () => {
-    GraphicsManager.init();
-});
+window.addEventListener('load', () => GraphicsManager.init());
