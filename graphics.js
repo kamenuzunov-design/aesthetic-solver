@@ -1,6 +1,6 @@
 /**
  * Aesthetic Solver - Графичен модул (graphics.js)
- * Пълен код с автоматично векторизиране и интерактивна редакция
+ * Пълен код с автоматично векторизиране, интерактивна редакция и коректни пропорции
  */
 
 const GraphicsManager = {
@@ -34,11 +34,32 @@ const GraphicsManager = {
         this.render();
     },
 
+    // Оразмеряване на Canvas според контейнера (първоначално)
     resize: function() {
         const wrapper = document.getElementById('canvas-wrapper');
         if (!wrapper) return;
         this.canvas.width = this.gridCanvas.width = wrapper.clientWidth;
         this.canvas.height = this.gridCanvas.height = wrapper.clientHeight;
+    },
+
+    // НОВО: Оразмеряване спрямо пропорциите на заредената снимка
+    resizeToImage: function() {
+        if (!this.bgImage.src) return;
+
+        const wrapper = document.getElementById('canvas-wrapper');
+        const maxWidth = wrapper.clientWidth;
+        const maxHeight = wrapper.clientHeight;
+
+        // Изчисляваме мащаба, за да се събере снимката в екрана без деформация
+        const ratio = Math.min(maxWidth / this.bgImage.naturalWidth, maxHeight / this.bgImage.naturalHeight);
+
+        const newWidth = this.bgImage.naturalWidth * ratio;
+        const newHeight = this.bgImage.naturalHeight * ratio;
+
+        this.canvas.width = this.gridCanvas.width = newWidth;
+        this.canvas.height = this.gridCanvas.height = newHeight;
+
+        this.drawGrid();
     },
 
     drawGrid: function() {
@@ -85,9 +106,12 @@ const GraphicsManager = {
             for (let x = step; x < width - step; x += step) {
                 const offset = (y * width + x) * 4;
                 const brightness = (pixels[offset] + pixels[offset+1] + pixels[offset+2]) / 3;
-                const rightB = (pixels[(y * width + (x + 1)) * 4] + pixels[(y * width + (x + 1)) * 4 + 1] + pixels[(y * width + (x + 1)) * 4 + 2]) / 3;
                 
-                if (Math.abs(brightness - rightB) > 30) {
+                // Проверка по X и по Y за по-добро откриване на вертикали
+                const rightB = (pixels[(y * width + (x + 1)) * 4] + pixels[(y * width + (x + 1)) * 4 + 1] + pixels[(y * width + (x + 1)) * 4 + 2]) / 3;
+                const downB = (pixels[((y + 1) * width + x) * 4] + pixels[((y + 1) * width + x) * 4 + 1] + pixels[((y + 1) * width + x) * 4 + 2]) / 3;
+                
+                if (Math.abs(brightness - rightB) > 30 || Math.abs(brightness - downB) > 30) {
                     vectors.push({
                         p1: { x: this.snap(x), y: this.snap(y) },
                         p2: { x: this.snap(x), y: this.snap(y + step) },
@@ -122,7 +146,11 @@ const GraphicsManager = {
         document.getElementById('imgUpload').addEventListener('change', (e) => {
             const reader = new FileReader();
             reader.onload = (f) => {
-                this.bgImage.onload = () => { this.render(); this.runAutoVectorization(); };
+                this.bgImage.onload = () => { 
+                    this.resizeToImage(); // Оразмеряваме Canvas спрямо снимката
+                    this.runAutoVectorization(); 
+                    this.render(); 
+                };
                 this.bgImage.src = f.target.result;
             };
             reader.readAsDataURL(e.target.files[0]);
@@ -139,7 +167,6 @@ const GraphicsManager = {
         const x = this.snap(e.clientX - rect.left);
         const y = this.snap(e.clientY - rect.top);
 
-        // Търсим дали е кликнато върху съществуваща точка за влачене
         this.draggedPoint = this.points.find(p => Math.abs(p.x - x) < 10 && Math.abs(p.y - y) < 10);
 
         if (!this.draggedPoint && this.currentTool === 'line') {
@@ -156,7 +183,6 @@ const GraphicsManager = {
         const y = this.snap(e.clientY - rect.top);
 
         if (this.draggedPoint) {
-            // Обновяваме координатите на точката и всички линии, свързани с нея
             const oldX = this.draggedPoint.x;
             const oldY = this.draggedPoint.y;
             this.draggedPoint.x = x;
@@ -192,6 +218,7 @@ const GraphicsManager = {
             this.ctx.globalAlpha = 1.0;
         }
 
+        // ЛИНИИ: 1 пиксел дебелина
         this.ctx.strokeStyle = "#2d3d4c";
         this.ctx.lineWidth = 1;
         this.lines.forEach(l => {
@@ -210,53 +237,17 @@ const GraphicsManager = {
             this.ctx.setLineDash([]);
         }
 
+        // ТОЧКИ: 1 пиксел диаметър (радиус 0.5)
         this.points.forEach(p => {
             this.ctx.fillStyle = (this.draggedPoint === p) ? "#28a745" : "#ff4444";
             this.ctx.beginPath();
-            this.ctx.arc(p.x, p.y, 1, 0, Math.PI * 2);
+            this.ctx.arc(p.x, p.y, 0.5, 0, Math.PI * 2); 
             this.ctx.fill();
         });
     }
 };
 
-
-resizeToImage: function() {
-    if (!this.bgImage.src) return;
-
-    const wrapper = document.getElementById('canvas-wrapper');
-    const maxWidth = wrapper.clientWidth;
-    const maxHeight = wrapper.clientHeight;
-
-    // Изчисляваме мащаба, за да се събере снимката в екрана
-    const ratio = Math.min(maxWidth / this.bgImage.naturalWidth, maxHeight / this.bgImage.naturalHeight);
-
-    // Новите размери на canvas
-    const newWidth = this.bgImage.naturalWidth * ratio;
-    const newHeight = this.bgImage.naturalHeight * ratio;
-
-    // Прилагаме ги към двата canvas-а
-    this.canvas.width = this.gridCanvas.width = newWidth;
-    this.canvas.height = this.gridCanvas.height = newHeight;
-
-    // Прерисуваме мрежата за новия размер
-    this.drawGrid();
-},
-
-// Обнови събитието за зареждане на снимка в attachListeners
-document.getElementById('imgUpload').addEventListener('change', (e) => {
-    const reader = new FileReader();
-    reader.onload = (f) => {
-        this.bgImage.onload = () => { 
-            this.resizeToImage(); // Първо оразмеряваме
-            this.runAutoVectorization(); // После векторизираме
-            this.render(); 
-        };
-        this.bgImage.src = f.target.result;
-    };
-    reader.readAsDataURL(e.target.files[0]);
-});
-
 function setTool(tool) { GraphicsManager.currentTool = tool; }
-function exportSVG() { alert("SVG Export logic coming soon..."); }
+function exportSVG() { alert("SVG Export logic ready to be implemented."); }
 
 window.addEventListener('load', () => GraphicsManager.init());
