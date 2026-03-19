@@ -1,6 +1,5 @@
 /**
  * Aesthetic Solver - Графичен модул (graphics.js)
- * Интерактивно етапно векторизиране с оптимизация на линиите
  */
 
 const GraphicsManager = {
@@ -44,7 +43,8 @@ const GraphicsManager = {
                 this.applyGrayscale();
                 break;
             case 2:
-                this.applyBinary(200); 
+                // Праг за 10% черно (255 * 0.9 = 229.5)
+                this.applyBinary(230); 
                 break;
             case 3:
                 this.applyThinning();
@@ -77,7 +77,7 @@ const GraphicsManager = {
     },
 
     applyThinning: function() {
-        if (!this.stageData) this.applyBinary(200);
+        if (!this.stageData) this.applyBinary(230);
         const width = this.canvas.width;
         const height = this.canvas.height;
         const data = this.stageData.data;
@@ -116,8 +116,9 @@ const GraphicsManager = {
         this.lines = [];
         const searchRadius = 3;  
         const simplifyTol = 1.5; 
-        const angleTol = 10 * (Math.PI / 180); // 10 градуса за сливане
-        const orthoTol = 5; // 5 пиксела за изправяне
+        const angleTol = 5 * (Math.PI / 180); // 5 градуса
+        const spikeTol = 45 * (Math.PI / 180); // 45 градуса за шипове
+        const orthoTol = 5; 
 
         for (let y = 0; y < height; y++) {
             for (let x = 0; x < width; x++) {
@@ -127,13 +128,12 @@ const GraphicsManager = {
                     const path = this.tracePath(x, y, data, visited, width, height, searchRadius);
                     
                     if (path.length > 3) {
-                        // 1. Опростяване на шума (Douglas-Peucker)
                         let simplified = this.douglasPeucker(path, simplifyTol);
                         
-                        // 2. Обединяване на малки колинеарни сегменти
-                        simplified = this.optimizePolyline(simplified, angleTol);
+                        // Премахване на къси сегменти с голямо отклонение
+                        simplified = this.removeSpikes(simplified, 5, spikeTol);
                         
-                        // 3. Автоматично изправяне на почти Х/У линии
+                        simplified = this.optimizePolyline(simplified, angleTol);
                         simplified = this.orthogonalizePolyline(simplified, orthoTol);
                         
                         this.addAsVectorLines(simplified);
@@ -207,7 +207,33 @@ const GraphicsManager = {
         return Math.sqrt(Math.pow(p.x - (a.x + t * (b.x - a.x)), 2) + Math.pow(p.y - (a.y + t * (b.y - a.y)), 2));
     },
 
-    // НОВО: Сливане на сегменти с подобен ъгъл
+    removeSpikes: function(points, maxDist, minAngle) {
+        if (points.length <= 2) return points;
+        const result = [points[0]];
+        
+        for (let i = 1; i < points.length - 1; i++) {
+            const prev = result[result.length - 1];
+            const curr = points[i];
+            const next = points[i + 1];
+            
+            const dist1 = Math.hypot(curr.x - prev.x, curr.y - prev.y);
+            const dist2 = Math.hypot(next.x - curr.x, next.y - curr.y);
+            
+            const angle1 = Math.atan2(curr.y - prev.y, curr.x - prev.x);
+            const angle2 = Math.atan2(next.y - curr.y, next.x - curr.x);
+            
+            let diff = Math.abs(angle1 - angle2);
+            if (diff > Math.PI) diff = 2 * Math.PI - diff;
+            
+            if ((dist1 <= maxDist || dist2 <= maxDist) && diff > minAngle) {
+                continue; 
+            }
+            result.push(curr);
+        }
+        result.push(points[points.length - 1]);
+        return result;
+    },
+
     optimizePolyline: function(points, angleTolerance) {
         if (points.length <= 2) return points;
         const optimized = [points[0]];
@@ -221,9 +247,8 @@ const GraphicsManager = {
             const angle2 = Math.atan2(next.y - curr.y, next.x - curr.x);
             
             let diff = Math.abs(angle1 - angle2);
-            if (diff > Math.PI) diff = 2 * Math.PI - diff; // Нормализиране
+            if (diff > Math.PI) diff = 2 * Math.PI - diff; 
             
-            // Ако ъгълът се променя значително, запазваме точката (тя е ъгъл)
             if (diff > angleTolerance) {
                 optimized.push(curr);
             }
@@ -232,7 +257,6 @@ const GraphicsManager = {
         return optimized;
     },
 
-    // НОВО: Изправяне на почти хоризонтални и вертикални отсечки
     orthogonalizePolyline: function(points, tolerance) {
         for (let i = 0; i < points.length - 1; i++) {
             const p1 = points[i];
@@ -346,7 +370,7 @@ const GraphicsManager = {
 };
 
 function setTool(tool) { GraphicsManager.currentTool = tool; }
-function exportSVG() { alert("SVG Export е в процес на разработка."); }
-function applyRelation(type) { console.log("Прилагане на връзка:", type); }
+function exportSVG() {}
+function applyRelation(type) {}
 
 window.addEventListener('load', () => GraphicsManager.init());
