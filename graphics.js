@@ -20,6 +20,10 @@ const GraphicsManager = {
     startPoint: null,
     tempEndPoint: null,
 
+    // Параметри за векторизиране
+    threshold: 128,
+    minSegmentLength: 3,
+
     init: function() {
         this.canvas = document.getElementById('mainCanvas');
         if (!this.canvas) return;
@@ -68,7 +72,8 @@ const GraphicsManager = {
         return Math.round(val / this.gridSize) * this.gridSize;
     },
 
-    // ПОДОБРЕНО ВЕКТОРИЗИРАНЕ
+    // --- АЛГОРИТЪМ ЗА ВЕКТОРИЗИРАНЕ ---
+
     runAutoVectorization: function() {
         if (!this.bgImage.src) return;
         const tempCanvas = document.createElement('canvas');
@@ -78,48 +83,119 @@ const GraphicsManager = {
         tempCtx.drawImage(this.bgImage, 0, 0, tempCanvas.width, tempCanvas.height);
 
         const imageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
-        this.lines = this.extractVectors(imageData);
+        const binaryData = this.preprocessImage(imageData);
+        
+        this.lines = this.traceImage(binaryData, tempCanvas.width, tempCanvas.height);
         this.rebuildPoints();
         this.render();
     },
 
-    extractVectors: function(imageData) {
-        const width = imageData.width;
-        const height = imageData.height;
-        const pixels = imageData.data;
-        const vectors = [];
-        const step = 15; // По-малък ход за по-голяма прецизност
-        const threshold = 40; // Праг на чувствителност
+    // 1. Превръщане в черно-бяло (Binary Threshold)
+    preprocessImage: function(imageData) {
+        const data = imageData.data;
+        const binary = new Uint8Array(data.length / 4);
+        for (let i = 0; i < data.length; i += 4) {
+            const avg = (data[i] + data[i+1] + data[i+2]) / 3;
+            binary[i / 4] = avg < this.threshold ? 1 : 0; // 1 е черна точка (линия)
+        }
+        return binary;
+    },
 
-        for (let y = step; y < height - step; y += step) {
-            for (let x = step; x < width - step; x += step) {
-                const idx = (y * width + x) * 4;
-                const brightness = (pixels[idx] + pixels[idx+1] + pixels[idx+2]) / 3;
+    // 2. Проследяване на пиксели (Tracing)
+    traceImage: function(binary, width, height) {
+        const lines = [];
+        const visited = new Uint8Array(binary.length);
 
-                // Проверка за Вертикален ръб (разлика по X)
-                const rightIdx = (y * width + (x + 2)) * 4;
-                const rightB = (pixels[rightIdx] + pixels[rightIdx+1] + pixels[rightIdx+2]) / 3;
-                if (Math.abs(brightness - rightB) > threshold) {
-                    vectors.push({
-                        p1: { x: this.snap(x), y: this.snap(y) },
-                        p2: { x: this.snap(x), y: this.snap(y + step) },
-                        id: Math.random()
-                    });
-                }
-
-                // Проверка за Хоризонтален ръб (разлика по Y)
-                const downIdx = ((y + 2) * width + x) * 4;
-                const downB = (pixels[downIdx] + pixels[downIdx+1] + pixels[downIdx+2]) / 3;
-                if (Math.abs(brightness - downB) > threshold) {
-                    vectors.push({
-                        p1: { x: this.snap(x), y: this.snap(y) },
-                        p2: { x: this.snap(x + step), y: this.snap(y) },
-                        id: Math.random()
-                    });
+        for (let y = 0; y < height; y++) {
+            for (let x = 0; x < width; x++) {
+                const idx = y * width + x;
+                if (binary[idx] === 1 && !visited[idx]) {
+                    const polyline = this.findNextPoints(x, y, binary, visited, width, height);
+                    if (polyline.length >= this.minSegmentLength) {
+                        const simplified = this.simplifyPolyline(polyline, 2.0);
+                        this.convertPolyToLines(simplified, lines);
+                    }
                 }
             }
         }
-        return vectors;
+        return lines;
+    },
+
+    findNextPoints: function(startX, startY, binary, visited, width, height) {
+        const points = [];
+        let currX = startX;
+        let currY = startY;
+
+        while (true) {
+            points.push({ x: currX, y: currY });
+            visited[currY * width + currX] = 1;
+
+            let next = this.getBestNeighbor(currX, currY, binary, visited, width, height);
+            if (!next) break;
+            currX = next.x;
+            currY = next.y;
+        }
+        return points;
+    },
+
+    getBestNeighbor: function(cx, cy, binary, visited, width, height) {
+        // Търсене в 8 посоки (радиус 1)
+        for (let dy = -1; dy <= 1; dy++) {
+            for (let dx = -1; dx <= 1; dx++) {
+                if (dx === 0 && dy === 0) continue;
+                const nx = cx + dx;
+                const ny = cy + dy;
+                if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
+                    const idx = ny * width + nx;
+                    if (binary[idx] === 1 && !visited[idx]) return { x: nx, y: ny };
+                }
+            }
+        }
+        return null;
+    },
+
+    // 3. Опростяване (Douglas-Peucker / SimplifyInt2D)
+    simplifyPolyline: function(points, tolerance) {
+        if (points.length <= 2) return points;
+
+        let maxDist = 0;
+        let index = 0;
+        const end = points.length - 1;
+
+        for (let i = 1; i < end; i++) {
+            const d = this.perpendicularDistance(points[i], points[0], points[end]);
+            if (d > maxDist) {
+                index = i;
+                maxDist = d;
+            }
+        }
+
+        if (maxDist > tolerance) {
+            const left = this.simplifyPolyline(points.slice(0, index + 1), tolerance);
+            const right = this.simplifyPolyline(points.slice(index), tolerance);
+            return left.slice(0, left.length - 1).concat(right);
+        } else {
+            return [points[0], points[end]];
+        }
+    },
+
+    perpendicularDistance: function(p, a, b) {
+        const area = Math.abs(0.5 * (a.x * (b.y - p.y) + b.x * (p.y - a.y) + p.x * (a.y - b.y)));
+        const bottom = Math.sqrt(Math.pow(a.x - b.x, 2) + Math.pow(a.y - b.y, 2));
+        return (area / bottom) * 2;
+    },
+
+    convertPolyToLines: function(poly, lines) {
+        for (let i = 0; i < poly.length - 1; i++) {
+            let p1 = { x: this.snap(poly[i].x), y: this.snap(poly[i].y) };
+            let p2 = { x: this.snap(poly[i + 1].x), y: this.snap(poly[i + 1].y) };
+            
+            // Автоматично изправяне (CheckLinePropertis)
+            if (Math.abs(p1.x - p2.x) < 5) p2.x = p1.x;
+            if (Math.abs(p1.y - p2.y) < 5) p2.y = p1.y;
+
+            lines.push({ p1, p2, id: Math.random() });
+        }
     },
 
     rebuildPoints: function() {
@@ -135,6 +211,8 @@ const GraphicsManager = {
             });
         });
     },
+
+    // --- СЪБИТИЯ И ВИЗУАЛИЗАЦИЯ ---
 
     attachListeners: function() {
         this.canvas.addEventListener('mousedown', (e) => this.handleDown(e));
@@ -165,7 +243,7 @@ const GraphicsManager = {
         const mouseX = e.clientX - rect.left;
         const mouseY = e.clientY - rect.top;
 
-        // Толеранс 5 пиксела за хващане
+        // Хващане с толеранс 5 пиксела
         this.draggedPoint = this.points.find(p => Math.abs(p.x - mouseX) <= 5 && Math.abs(p.y - mouseY) <= 5);
 
         if (!this.draggedPoint && this.currentTool === 'line') {
@@ -247,15 +325,6 @@ const GraphicsManager = {
 /** ГЛОБАЛНИ ФУНКЦИИ **/
 function setTool(tool) { GraphicsManager.currentTool = tool; }
 function exportSVG() { alert("SVG Export..."); }
-function applyRelation(type) { 
-    if (type === 'horizontal') {
-        if (GraphicsManager.lines.length > 0) {
-            let line = GraphicsManager.lines[GraphicsManager.lines.length - 1];
-            line.p2.y = line.p1.y;
-            GraphicsManager.rebuildPoints();
-            GraphicsManager.render();
-        }
-    }
-}
+function applyRelation(type) { console.log("Relation:", type); }
 
 window.addEventListener('load', () => GraphicsManager.init());
