@@ -1,6 +1,6 @@
 /**
  * Aesthetic Solver - Графичен модул (graphics.js)
- * Етапно векторизиране с кликване
+ * Интерактивно етапно векторизиране
  */
 
 const GraphicsManager = {
@@ -9,9 +9,8 @@ const GraphicsManager = {
     bgImage: new Image(),
     imgOpacity: 0.5,
     
-    // Състояние на обработката (0: Оригинал, 1: Сиво, 2: Ч/Б, 3: Тънко, 4: Вектори)
     currentStage: 0,
-    stageData: null, // Кеширани пикселни данни за текущия етап
+    stageData: null, 
     
     points: [], 
     lines: [],  
@@ -20,7 +19,15 @@ const GraphicsManager = {
         this.canvas = document.getElementById('mainCanvas');
         if (!this.canvas) return;
         this.ctx = this.canvas.getContext('2d');
+        this.resize();
         this.attachListeners();
+    },
+
+    resize: function() {
+        const wrapper = document.getElementById('canvas-wrapper');
+        if (!wrapper) return;
+        this.canvas.width = wrapper.clientWidth;
+        this.canvas.height = wrapper.clientHeight;
     },
 
     // --- ЕТАПИ НА ОБРАБОТКА ---
@@ -32,25 +39,24 @@ const GraphicsManager = {
         console.log("Текущ етап:", this.currentStage);
 
         switch(this.currentStage) {
-            case 0: // Оригинал
+            case 0:
                 this.render();
                 break;
-            case 1: // Степени на сиво
+            case 1:
                 this.applyGrayscale();
                 break;
-            case 2: // Черно-бяло (Binary)
-                this.applyBinary(200); // Праг около 20% черно
+            case 2:
+                this.applyBinary(200); 
                 break;
-            case 3: // Изтъняване (Skeletonization)
+            case 3:
                 this.applyThinning();
                 break;
-            case 4: // Векторизиране
+            case 4:
                 this.runTracing();
                 break;
         }
     },
 
-    // 1. Grayscale
     applyGrayscale: function() {
         const imgData = this.getCleanImageData();
         const data = imgData.data;
@@ -62,7 +68,6 @@ const GraphicsManager = {
         this.renderStage();
     },
 
-    // 2. Binary (Black & White)
     applyBinary: function(threshold) {
         if (!this.stageData) this.applyGrayscale();
         const data = this.stageData.data;
@@ -73,21 +78,17 @@ const GraphicsManager = {
         this.renderStage();
     },
 
-    // 3. Thinning (Опростен алгоритъм за изтъняване до 1px)
     applyThinning: function() {
         if (!this.stageData) this.applyBinary(200);
         const width = this.canvas.width;
         const height = this.canvas.height;
         const data = this.stageData.data;
         
-        // Опростен морфологичен филтър за скелетизация
         const result = new Uint8ClampedArray(data);
         for (let y = 1; y < height - 1; y++) {
             for (let x = 1; x < width - 1; x++) {
                 const idx = (y * width + x) * 4;
-                if (data[idx] === 0) { // Ако е черен пиксел
-                    // Проверяваме съседите - ако е обграден от черни, го махаме (правим го бял)
-                    // Това е силно опростено "изяждане" на запълването
+                if (data[idx] === 0) { 
                     let neighbors = 0;
                     if (data[((y-1)*width + x)*4] === 0) neighbors++;
                     if (data[((y+1)*width + x)*4] === 0) neighbors++;
@@ -102,13 +103,130 @@ const GraphicsManager = {
         this.renderStage();
     },
 
-    // 4. Tracing (Векторизиране)
     runTracing: function() {
-        // Тук извикваме логиката за проследяване, която вече обсъдихме
-        // За целите на демонстрацията ще визуализираме финалните линии
-        this.lines = []; // Изчистваме старите
         this.executeTracingAlgorithm(); 
         this.render(); 
+    },
+
+    executeTracingAlgorithm: function() {
+        if (!this.stageData) return;
+        const width = this.canvas.width;
+        const height = this.canvas.height;
+        const data = this.stageData.data;
+        const visited = new Uint8Array(width * height);
+        
+        this.lines = [];
+        const searchRadius = 3;  
+        const simplifyTol = 1.5; 
+
+        for (let y = 0; y < height; y++) {
+            for (let x = 0; x < width; x++) {
+                const idx = y * width + x;
+                
+                if (data[idx * 4] === 0 && !visited[idx]) {
+                    const path = this.tracePath(x, y, data, visited, width, height, searchRadius);
+                    
+                    if (path.length > 3) {
+                        const simplified = this.douglasPeucker(path, simplifyTol);
+                        this.addAsVectorLines(simplified);
+                    }
+                }
+            }
+        }
+        this.rebuildPoints();
+    },
+
+    tracePath: function(startX, startY, data, visited, width, height, searchRadius) {
+        const path = [];
+        let cx = startX;
+        let cy = startY;
+
+        while (true) {
+            path.push({ x: cx, y: cy });
+            visited[cy * width + cx] = 1;
+
+            let foundNext = false;
+            for (let r = 1; r <= searchRadius; r++) {
+                for (let dy = -r; dy <= r; dy++) {
+                    for (let dx = -r; dx <= r; dx++) {
+                        if (dx === 0 && dy === 0) continue;
+                        
+                        const nx = cx + dx;
+                        const ny = cy + dy;
+                        
+                        if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
+                            const nIdx = ny * width + nx;
+                            if (data[nIdx * 4] === 0 && !visited[nIdx]) {
+                                cx = nx;
+                                cy = ny;
+                                foundNext = true;
+                                break;
+                            }
+                        }
+                    }
+                    if (foundNext) break;
+                }
+                if (foundNext) break;
+            }
+            if (!foundNext) break;
+        }
+        return path;
+    },
+
+    douglasPeucker: function(points, tolerance) {
+        if (points.length <= 2) return points;
+
+        let dmax = 0;
+        let index = 0;
+        const end = points.length - 1;
+
+        for (let i = 1; i < end; i++) {
+            const d = this.distToSegment(points[i], points[0], points[end]);
+            if (d > dmax) {
+                index = i;
+                dmax = d;
+            }
+        }
+
+        if (dmax > tolerance) {
+            const res1 = this.douglasPeucker(points.slice(0, index + 1), tolerance);
+            const res2 = this.douglasPeucker(points.slice(index), tolerance);
+            return res1.slice(0, res1.length - 1).concat(res2);
+        } else {
+            return [points[0], points[end]];
+        }
+    },
+
+    distToSegment: function(p, a, b) {
+        const l2 = Math.pow(a.x - b.x, 2) + Math.pow(a.y - b.y, 2);
+        if (l2 === 0) return Math.sqrt(Math.pow(p.x - a.x, 2) + Math.pow(p.y - a.y, 2));
+        let t = ((p.x - a.x) * (b.x - a.x) + (p.y - a.y) * (b.y - a.y)) / l2;
+        t = Math.max(0, Math.min(1, t));
+        return Math.sqrt(Math.pow(p.x - (a.x + t * (b.x - a.x)), 2) + Math.pow(p.y - (a.y + t * (b.y - a.y)), 2));
+    },
+
+    addAsVectorLines: function(points) {
+        for (let i = 0; i < points.length - 1; i++) {
+            this.lines.push({
+                p1: { x: points[i].x, y: points[i].y },
+                p2: { x: points[i + 1].x, y: points[i + 1].y },
+                id: Math.random()
+            });
+        }
+    },
+
+    rebuildPoints: function() {
+        this.points = [];
+        const seen = new Set();
+        this.lines.forEach(l => {
+            [l.p1, l.p2].forEach(p => {
+                const key = `${p.x},${p.y}`;
+                if (!seen.has(key)) {
+                    seen.add(key);
+                    this.points.push({ ...p, id: Math.random() });
+                }
+            });
+        });
     },
 
     // --- ПОМОЩНИ ФУНКЦИИ ---
@@ -130,15 +248,13 @@ const GraphicsManager = {
     render: function() {
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
         
-        // Рисуване на оригиналната снимка с прозрачност
         if (this.bgImage.src) {
             this.ctx.save();
-            this.ctx.globalAlpha = this.imgOpacity;
+            this.ctx.globalAlpha = parseFloat(this.imgOpacity);
             this.ctx.drawImage(this.bgImage, 0, 0, this.canvas.width, this.canvas.height);
             this.ctx.restore();
         }
 
-        // Рисуване на векторите (само ако сме на етап 4)
         if (this.currentStage === 4) {
             this.ctx.strokeStyle = "#2d3d4c";
             this.ctx.lineWidth = 1;
@@ -148,33 +264,57 @@ const GraphicsManager = {
                 this.ctx.lineTo(l.p2.x, l.p2.y);
                 this.ctx.stroke();
             });
+
+            this.ctx.fillStyle = "#ff4444";
+            this.points.forEach(p => {
+                this.ctx.beginPath();
+                this.ctx.arc(p.x, p.y, 1.5, 0, Math.PI * 2);
+                this.ctx.fill();
+            });
         }
     },
 
     attachListeners: function() {
-        // Кликване върху Canvas за преминаване към следващ етап
         this.canvas.addEventListener('click', () => this.nextStage());
 
-        document.getElementById('imgUpload').addEventListener('change', (e) => {
-            const reader = new FileReader();
-            reader.onload = (f) => {
-                this.bgImage.onload = () => {
-                    this.canvas.width = this.bgImage.naturalWidth;
-                    this.canvas.height = this.bgImage.naturalHeight;
-                    this.currentStage = 0;
-                    this.render();
+        const upload = document.getElementById('imgUpload');
+        if (upload) {
+            upload.addEventListener('change', (e) => {
+                const reader = new FileReader();
+                reader.onload = (f) => {
+                    this.bgImage.onload = () => {
+                        this.canvas.width = this.bgImage.naturalWidth;
+                        this.canvas.height = this.bgImage.naturalHeight;
+                        this.currentStage = 0;
+                        this.render();
+                    };
+                    this.bgImage.src = f.target.result;
                 };
-                this.bgImage.src = f.target.result;
-            };
-            if (e.target.files[0]) reader.readAsDataURL(e.target.files[0]);
-        });
-    },
+                if (e.target.files[0]) reader.readAsDataURL(e.target.files[0]);
+            });
+        }
 
-    executeTracingAlgorithm: function() {
-        // Тук стои твоят Douglas-Peucker и FindNextPoint алгоритъм
-        // За момента ще добавим една демо линия, за да видиш, че работи
-        this.lines.push({ p1: {x: 50, y: 50}, p2: {x: 200, y: 200} });
+        const opacityRange = document.getElementById('imgOpacity');
+        if (opacityRange) {
+            opacityRange.addEventListener('input', (e) => {
+                this.imgOpacity = e.target.value;
+                this.render();
+            });
+        }
     }
 };
+
+/** ГЛОБАЛНИ ФУНКЦИИ **/
+function setTool(tool) { 
+    GraphicsManager.currentTool = tool; 
+}
+
+function exportSVG() { 
+    alert("SVG Export е в процес на разработка."); 
+}
+
+function applyRelation(type) {
+    console.log("Прилагане на връзка:", type);
+}
 
 window.addEventListener('load', () => GraphicsManager.init());
