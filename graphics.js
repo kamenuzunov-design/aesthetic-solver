@@ -1,6 +1,6 @@
 /**
  * Aesthetic Solver - Графичен модул (graphics.js)
- * Интерактивно етапно векторизиране
+ * Интерактивно етапно векторизиране с оптимизация на линиите
  */
 
 const GraphicsManager = {
@@ -29,8 +29,6 @@ const GraphicsManager = {
         this.canvas.width = wrapper.clientWidth;
         this.canvas.height = wrapper.clientHeight;
     },
-
-    // --- ЕТАПИ НА ОБРАБОТКА ---
 
     nextStage: function() {
         if (!this.bgImage.src) return;
@@ -118,6 +116,8 @@ const GraphicsManager = {
         this.lines = [];
         const searchRadius = 3;  
         const simplifyTol = 1.5; 
+        const angleTol = 10 * (Math.PI / 180); // 10 градуса за сливане
+        const orthoTol = 5; // 5 пиксела за изправяне
 
         for (let y = 0; y < height; y++) {
             for (let x = 0; x < width; x++) {
@@ -127,7 +127,15 @@ const GraphicsManager = {
                     const path = this.tracePath(x, y, data, visited, width, height, searchRadius);
                     
                     if (path.length > 3) {
-                        const simplified = this.douglasPeucker(path, simplifyTol);
+                        // 1. Опростяване на шума (Douglas-Peucker)
+                        let simplified = this.douglasPeucker(path, simplifyTol);
+                        
+                        // 2. Обединяване на малки колинеарни сегменти
+                        simplified = this.optimizePolyline(simplified, angleTol);
+                        
+                        // 3. Автоматично изправяне на почти Х/У линии
+                        simplified = this.orthogonalizePolyline(simplified, orthoTol);
+                        
                         this.addAsVectorLines(simplified);
                     }
                 }
@@ -157,8 +165,7 @@ const GraphicsManager = {
                         if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
                             const nIdx = ny * width + nx;
                             if (data[nIdx * 4] === 0 && !visited[nIdx]) {
-                                cx = nx;
-                                cy = ny;
+                                cx = nx; cy = ny;
                                 foundNext = true;
                                 break;
                             }
@@ -175,17 +182,12 @@ const GraphicsManager = {
 
     douglasPeucker: function(points, tolerance) {
         if (points.length <= 2) return points;
-
-        let dmax = 0;
-        let index = 0;
+        let dmax = 0, index = 0;
         const end = points.length - 1;
 
         for (let i = 1; i < end; i++) {
             const d = this.distToSegment(points[i], points[0], points[end]);
-            if (d > dmax) {
-                index = i;
-                dmax = d;
-            }
+            if (d > dmax) { index = i; dmax = d; }
         }
 
         if (dmax > tolerance) {
@@ -203,6 +205,47 @@ const GraphicsManager = {
         let t = ((p.x - a.x) * (b.x - a.x) + (p.y - a.y) * (b.y - a.y)) / l2;
         t = Math.max(0, Math.min(1, t));
         return Math.sqrt(Math.pow(p.x - (a.x + t * (b.x - a.x)), 2) + Math.pow(p.y - (a.y + t * (b.y - a.y)), 2));
+    },
+
+    // НОВО: Сливане на сегменти с подобен ъгъл
+    optimizePolyline: function(points, angleTolerance) {
+        if (points.length <= 2) return points;
+        const optimized = [points[0]];
+        
+        for (let i = 1; i < points.length - 1; i++) {
+            const prev = optimized[optimized.length - 1];
+            const curr = points[i];
+            const next = points[i + 1];
+            
+            const angle1 = Math.atan2(curr.y - prev.y, curr.x - prev.x);
+            const angle2 = Math.atan2(next.y - curr.y, next.x - curr.x);
+            
+            let diff = Math.abs(angle1 - angle2);
+            if (diff > Math.PI) diff = 2 * Math.PI - diff; // Нормализиране
+            
+            // Ако ъгълът се променя значително, запазваме точката (тя е ъгъл)
+            if (diff > angleTolerance) {
+                optimized.push(curr);
+            }
+        }
+        optimized.push(points[points.length - 1]);
+        return optimized;
+    },
+
+    // НОВО: Изправяне на почти хоризонтални и вертикални отсечки
+    orthogonalizePolyline: function(points, tolerance) {
+        for (let i = 0; i < points.length - 1; i++) {
+            const p1 = points[i];
+            const p2 = points[i+1];
+            if (Math.abs(p1.y - p2.y) <= tolerance) {
+                const avgY = (p1.y + p2.y) / 2;
+                p1.y = p2.y = avgY;
+            } else if (Math.abs(p1.x - p2.x) <= tolerance) {
+                const avgX = (p1.x + p2.x) / 2;
+                p1.x = p2.x = avgX;
+            }
+        }
+        return points;
     },
 
     addAsVectorLines: function(points) {
@@ -228,8 +271,6 @@ const GraphicsManager = {
             });
         });
     },
-
-    // --- ПОМОЩНИ ФУНКЦИИ ---
 
     getCleanImageData: function() {
         const tempCanvas = document.createElement('canvas');
@@ -304,17 +345,8 @@ const GraphicsManager = {
     }
 };
 
-/** ГЛОБАЛНИ ФУНКЦИИ **/
-function setTool(tool) { 
-    GraphicsManager.currentTool = tool; 
-}
-
-function exportSVG() { 
-    alert("SVG Export е в процес на разработка."); 
-}
-
-function applyRelation(type) {
-    console.log("Прилагане на връзка:", type);
-}
+function setTool(tool) { GraphicsManager.currentTool = tool; }
+function exportSVG() { alert("SVG Export е в процес на разработка."); }
+function applyRelation(type) { console.log("Прилагане на връзка:", type); }
 
 window.addEventListener('load', () => GraphicsManager.init());
