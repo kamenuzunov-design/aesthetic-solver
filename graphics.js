@@ -18,38 +18,36 @@ const GraphicsManager = {
         this.canvas = document.getElementById('mainCanvas');
         if (!this.canvas) return;
         this.ctx = this.canvas.getContext('2d');
-        this.resize();
         this.attachListeners();
-    },
-
-    resize: function() {
-        const wrapper = document.getElementById('canvas-wrapper');
-        if (!wrapper) return;
-        this.canvas.width = wrapper.clientWidth;
-        this.canvas.height = wrapper.clientHeight;
     },
 
     nextStage: function() {
         if (!this.bgImage.src) return;
         
-        this.currentStage = (this.currentStage + 1) % 5;
+        // Вече имаме 7 етапа (0 до 6)
+        this.currentStage = (this.currentStage + 1) % 7;
         console.log("Текущ етап:", this.currentStage);
 
         switch(this.currentStage) {
-            case 0:
+            case 0: // 0. Оригинал
                 this.render();
                 break;
-            case 1:
+            case 1: // 1. Сиво
                 this.applyGrayscale();
                 break;
-            case 2:
-                // Праг за 10% черно (255 * 0.9 = 229.5)
+            case 2: // 2. Сиво през 20%
+                this.applyQuantize();
+                break;
+            case 3: // 3. Премахване на петна (Шум)
+                this.applyNoiseReduction();
+                break;
+            case 4: // 4. Черно-бяло
                 this.applyBinary(230); 
                 break;
-            case 3:
+            case 5: // 5. Изтъняване
                 this.applyThinning();
                 break;
-            case 4:
+            case 6: // 6. Векторизиране
                 this.runTracing();
                 break;
         }
@@ -66,8 +64,49 @@ const GraphicsManager = {
         this.renderStage();
     },
 
-    applyBinary: function(threshold) {
+    // НОВО: Стъпаловидно сиво през 20%
+    applyQuantize: function() {
         if (!this.stageData) this.applyGrayscale();
+        const data = this.stageData.data;
+        for (let i = 0; i < data.length; i += 4) {
+            // Закръгляме към 5 стъпки: 0, 51, 102, 153, 204, 255
+            let val = Math.round(data[i] / 51) * 51;
+            data[i] = data[i+1] = data[i+2] = val;
+        }
+        this.renderStage();
+    },
+
+    // НОВО: Медианен филтър за премахване на шум
+    applyNoiseReduction: function() {
+        if (!this.stageData) this.applyQuantize();
+        const width = this.canvas.width;
+        const height = this.canvas.height;
+        const data = this.stageData.data;
+        const result = new Uint8ClampedArray(data);
+
+        for (let y = 1; y < height - 1; y++) {
+            for (let x = 1; x < width - 1; x++) {
+                let vals = [];
+                // Взимаме 3x3 матрица около пиксела
+                for (let dy = -1; dy <= 1; dy++) {
+                    for (let dx = -1; dx <= 1; dx++) {
+                        vals.push(data[((y + dy) * width + (x + dx)) * 4]);
+                    }
+                }
+                // Сортираме и взимаме средната стойност (поглъщане на петна)
+                vals.sort((a, b) => a - b);
+                let median = vals[4];
+                
+                const idx = (y * width + x) * 4;
+                result[idx] = result[idx+1] = result[idx+2] = median;
+            }
+        }
+        this.stageData.data.set(result);
+        this.renderStage();
+    },
+
+    applyBinary: function(threshold) {
+        if (!this.stageData) this.applyNoiseReduction();
         const data = this.stageData.data;
         for (let i = 0; i < data.length; i += 4) {
             const val = data[i] < threshold ? 0 : 255;
@@ -116,8 +155,8 @@ const GraphicsManager = {
         this.lines = [];
         const searchRadius = 3;  
         const simplifyTol = 1.5; 
-        const angleTol = 5 * (Math.PI / 180); // 5 градуса
-        const spikeTol = 45 * (Math.PI / 180); // 45 градуса за шипове
+        const angleTol = 5 * (Math.PI / 180); 
+        const spikeTol = 45 * (Math.PI / 180); 
         const orthoTol = 5; 
 
         for (let y = 0; y < height; y++) {
@@ -129,10 +168,7 @@ const GraphicsManager = {
                     
                     if (path.length > 3) {
                         let simplified = this.douglasPeucker(path, simplifyTol);
-                        
-                        // Премахване на къси сегменти с голямо отклонение
                         simplified = this.removeSpikes(simplified, 5, spikeTol);
-                        
                         simplified = this.optimizePolyline(simplified, angleTol);
                         simplified = this.orthogonalizePolyline(simplified, orthoTol);
                         
@@ -296,12 +332,20 @@ const GraphicsManager = {
         });
     },
 
+    // НОВО: Добавяне на 1px бяло поле при подготовка на данните
     getCleanImageData: function() {
         const tempCanvas = document.createElement('canvas');
         tempCanvas.width = this.canvas.width;
         tempCanvas.height = this.canvas.height;
         const tempCtx = tempCanvas.getContext('2d');
-        tempCtx.drawImage(this.bgImage, 0, 0, this.canvas.width, this.canvas.height);
+        
+        // Запълваме целия canvas с бяло
+        tempCtx.fillStyle = "#ffffff";
+        tempCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+        
+        // Рисуваме снимката отместена с 1 пиксел
+        tempCtx.drawImage(this.bgImage, 1, 1, this.bgImage.naturalWidth, this.bgImage.naturalHeight);
+        
         return tempCtx.getImageData(0, 0, this.canvas.width, this.canvas.height);
     },
 
@@ -316,11 +360,12 @@ const GraphicsManager = {
         if (this.bgImage.src) {
             this.ctx.save();
             this.ctx.globalAlpha = parseFloat(this.imgOpacity);
-            this.ctx.drawImage(this.bgImage, 0, 0, this.canvas.width, this.canvas.height);
+            // Рисуваме с 1px отместване за съответствие с координатите на алгоритъма
+            this.ctx.drawImage(this.bgImage, 1, 1, this.bgImage.naturalWidth, this.bgImage.naturalHeight);
             this.ctx.restore();
         }
 
-        if (this.currentStage === 4) {
+        if (this.currentStage === 6) {
             this.ctx.strokeStyle = "#2d3d4c";
             this.ctx.lineWidth = 1;
             this.lines.forEach(l => {
@@ -348,8 +393,9 @@ const GraphicsManager = {
                 const reader = new FileReader();
                 reader.onload = (f) => {
                     this.bgImage.onload = () => {
-                        this.canvas.width = this.bgImage.naturalWidth;
-                        this.canvas.height = this.bgImage.naturalHeight;
+                        // НОВО: Увеличаваме размера с +2 за бялото поле (1px от всяка страна)
+                        this.canvas.width = this.bgImage.naturalWidth + 2;
+                        this.canvas.height = this.bgImage.naturalHeight + 2;
                         this.currentStage = 0;
                         this.render();
                     };
