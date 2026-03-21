@@ -17,14 +17,15 @@ const GraphicsManager = {
     lastMouseX: 0,
     lastMouseY: 0,
     lastPinchDist: 0,
-    lastSvgString: null, // Стринг за експорт
-     
-    // Мащабиране и центриране
+    lastSvgString: null, 
+    paths: [],           
+    selectedPathIdx: -1, 
+    selectedNodes: [],   
+    selectedSegments: [], 
+    dragNode: null,      
+
+    // Мащабиране 
     imgScale: 1,
-    scaledW: 0,
-    scaledH: 0,
-    offsetX: 0,
-    offsetY: 0,
     
     init: function() {
         this.canvas = document.getElementById('mainCanvas');
@@ -36,61 +37,40 @@ const GraphicsManager = {
         this.resize();
     },
 
-    calcScale: function() {
-        if (!this.bgImage.src || !this.bgImage.naturalWidth) return;
-        
-        const wrapper = document.getElementById('canvas-wrapper');
-        if (!wrapper) return;
-
-        const padding = 40; // 20px отстояние от всяка страна
-        const maxWidth = wrapper.clientWidth - padding;
-        const maxHeight = wrapper.clientHeight - padding;
-        
-        // Намираме най-доброто съотношение, за да се събере изцяло
-        const ratio = Math.min(maxWidth / this.bgImage.naturalWidth, maxHeight / this.bgImage.naturalHeight);
-        
-        this.imgScale = ratio;
-        this.scaledW = this.bgImage.naturalWidth * ratio;
-        this.scaledH = this.bgImage.naturalHeight * ratio;
-        
-        this.canvas.width = wrapper.clientWidth;
-        this.canvas.height = wrapper.clientHeight;
-        
-        // Първоначално центриране
-        this.offsetX = (wrapper.clientWidth - this.scaledW) / 2;
-        this.offsetY = (wrapper.clientHeight - this.scaledH) / 2;
-    },
-
     resize: function() {
-        if (this.bgImage.src) {
-            this.calcScale();
-            this.redraw();
-        } else {
-            const wrapper = document.getElementById('canvas-wrapper');
-            if (wrapper) {
-                this.canvas.width = wrapper.clientWidth;
-                this.canvas.height = wrapper.clientHeight;
-            }
-        }
-    },
+        const container = document.getElementById('canvas-wrapper');
+        if (!container || !this.canvas) return;
+        
+        this.canvas.width = container.clientWidth;
+        this.canvas.height = container.clientHeight;
 
-    redraw: function() {
-        if (this.potraceImg) {
-            this.renderSvg();
-        } else {
-            this.render();
+        if (this.bgImage.src && this.bgImage.width > 0) {
+            this.imgScale = Math.min(this.canvas.width / this.bgImage.width, this.canvas.height / this.bgImage.height) * 0.9;
+            console.log(`Resize: canvas=${this.canvas.width}x${this.canvas.height}, img=${this.bgImage.width}x${this.bgImage.height}, scale=${this.imgScale}`);
         }
+        this.redraw();
     },
 
     applyTransform: function() {
+        const imgW = (this.bgImage.complete && this.bgImage.width > 0) ? this.bgImage.width : 100;
+        const imgH = (this.bgImage.complete && this.bgImage.height > 0) ? this.bgImage.height : 100;
+        const s = this.imgScale * this.userZoom;
+        
+        const x = (this.canvas.width - imgW * s) / 2 + this.panX;
+        const y = (this.canvas.height - imgH * s) / 2 + this.panY;
+        
+        console.log(`applyTransform: x=${x.toFixed(1)}, y=${y.toFixed(1)}, s=${s.toFixed(3)}, canvas=${this.canvas.width}x${this.canvas.height}, imgW=${imgW}`);
+        this.ctx.translate(x, y);
+        this.ctx.scale(s, s);
+    },
+
+    redraw: function() {
+        if (!this.ctx) return;
+        if (this.canvas.width === 0) this.resize();
         this.ctx.setTransform(1, 0, 0, 1, 0, 0);
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-        
-        // Прилагаме Pan и Zoom
-        // Мащабираме спрямо центъра на канвата (или отместването)
-        this.ctx.translate(this.canvas.width/2 + this.panX, this.canvas.height/2 + this.panY);
-        this.ctx.scale(this.userZoom, this.userZoom);
-        this.ctx.translate(-this.canvas.width/2, -this.canvas.height/2);
+        this.render();
+        this.renderSvg();
     },
 
     runPotrace: function() {
@@ -128,6 +108,8 @@ const GraphicsManager = {
         if (!this.paths || this.paths.length === 0) return;
         this.ctx.save();
         this.applyTransform();
+        // Връщаме прозрачността на 1.0 за векторите
+        this.ctx.globalAlpha = 1.0;
         this.ctx.lineWidth = 1 / (this.imgScale * this.userZoom);
         this.drawPaths();
         if (this.currentTool === 'node-edit' && this.selectedPathIdx !== -1) {
@@ -172,16 +154,31 @@ const GraphicsManager = {
         const path = this.paths[this.selectedPathIdx];
         if (!path) return;
         const curve = path.curve;
-        const radius = 1.5; 
+        const size = 3 / (this.imgScale * this.userZoom); // Квадрат 3х3 пиксела
         
         for (let i = 0; i < curve.n; i++) {
             const p = curve.c[i * 3 + 2];
             const isSelected = this.selectedNodes.includes(i);
+            const isLast = (i === curve.n - 1);
             
             this.ctx.beginPath();
-            this.ctx.arc(p.x, p.y, radius / (this.imgScale * this.userZoom), 0, Math.PI * 2);
-            this.ctx.fillStyle = isSelected ? "red" : "#0078d7";
+            if (isLast) {
+                // Рисуваме триъгълник за края на полилинията
+                const h = size * 1.5;
+                this.ctx.moveTo(p.x, p.y + h/2);
+                this.ctx.lineTo(p.x - h/2, p.y - h/2);
+                this.ctx.lineTo(p.x + h/2, p.y - h/2);
+                this.ctx.closePath();
+            } else {
+                // Рисуваме квадрат 3х3
+                this.ctx.rect(p.x - size/2, p.y - size/2, size, size);
+            }
+            
+            this.ctx.fillStyle = "white";
             this.ctx.fill();
+            this.ctx.strokeStyle = isSelected ? "red" : "#0078d7";
+            this.ctx.lineWidth = 0.5 / (this.imgScale * this.userZoom);
+            this.ctx.stroke();
         }
     },
 
@@ -190,8 +187,15 @@ const GraphicsManager = {
         const screenX = x - rect.left;
         const screenY = y - rect.top;
         
-        const potraceX = (screenX - this.canvas.width/2 - this.panX) / (this.imgScale * this.userZoom) + (this.bgImage.width / 2);
-        const potraceY = (screenY - this.canvas.height/2 - this.panY) / (this.imgScale * this.userZoom) + (this.bgImage.height / 2);
+        const s = this.imgScale * this.userZoom;
+        const imgW = this.bgImage.complete ? this.bgImage.width : 100;
+        const imgH = this.bgImage.complete ? this.bgImage.height : 100;
+        
+        const offsetX = (this.canvas.width - imgW * s) / 2 + this.panX;
+        const offsetY = (this.canvas.height - imgH * s) / 2 + this.panY;
+        
+        const potraceX = (screenX - offsetX) / s;
+        const potraceY = (screenY - offsetY) / s;
 
         // 1. Проверка за възли (Nodes)
         if (this.currentTool === 'node-edit' && this.selectedPathIdx !== -1) {
@@ -240,8 +244,9 @@ const GraphicsManager = {
         this.ctx.save();
         this.applyTransform();
         
+        // Рисуваме растерното изображение с прозрачност
         this.ctx.globalAlpha = parseFloat(this.imgOpacity);
-        this.ctx.drawImage(this.bgImage, this.offsetX, this.offsetY, this.scaledW, this.scaledH);
+        this.ctx.drawImage(this.bgImage, 0, 0, this.bgImage.width, this.bgImage.height);
         
         this.ctx.restore();
     },
@@ -258,7 +263,7 @@ const GraphicsManager = {
                         this.userZoom = 1.0;
                         this.panX = 0;
                         this.panY = 0;
-                        this.calcScale();
+                        this.resize();
                         
                         // Автоматично нулираме на 10% прозрачност
                         this.imgOpacity = 0.1;

@@ -269,15 +269,15 @@
                 }
             }
             
-            if(sectionId === 'geometric' && typeof CanvasManager !== 'undefined') {
-                CanvasManager.init();
-                // Автоматично отваряне на прозореца за качване
-                setTimeout(() => {
-                    const uploadInput = document.getElementById('imgUpload');
-                    if (uploadInput) uploadInput.click();
-                }, 100);
-                // Също така се уверяваме, че GraphicsManager ще преоразмери правилно след показване
-                if (typeof GraphicsManager !== 'undefined') GraphicsManager.resize();
+            if(sectionId === 'geometric' && typeof GraphicsManager !== 'undefined') {
+                GraphicsManager.resize();
+                // Автоматично отваряне на прозореца за качване, ако няма качено изображение
+                if (!GraphicsManager.bgImage.src) {
+                    setTimeout(() => {
+                        const uploadInput = document.getElementById('imgUpload');
+                        if (uploadInput) uploadInput.click();
+                    }, 100);
+                }
             }
         }
     </script>
