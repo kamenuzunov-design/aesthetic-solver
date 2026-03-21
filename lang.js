@@ -12,7 +12,12 @@ async function setLanguage(langCode) {
         Object.keys(data).forEach(key => {
             const element = document.getElementById(key);
             if (element) {
-                element.textContent = data[key];
+                // Ако е бутон от таскибара с икона, обновяваме само title, за да не изтрием SVG-то
+                if (element.classList.contains('geo-toolbar-btn')) {
+                    element.title = data[key];
+                } else {
+                    element.textContent = data[key];
+                }
             }
         });
  
