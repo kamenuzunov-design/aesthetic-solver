@@ -1,5 +1,6 @@
 /**
  * Aesthetic Solver - Графичен модул (graphics.js)
+ * 6-етапно векторизиране с послойна скелетизация и 3px отстояние
  */
 
 const GraphicsManager = {
@@ -21,38 +22,31 @@ const GraphicsManager = {
         this.attachListeners();
     },
 
+    resize: function() {
+        const wrapper = document.getElementById('canvas-wrapper');
+        if (!wrapper) return;
+        this.canvas.width = wrapper.clientWidth;
+        this.canvas.height = wrapper.clientHeight;
+    },
+
     nextStage: function() {
         if (!this.bgImage.src) return;
         
-        // Вече имаме 7 етапа (0 до 6)
-        this.currentStage = (this.currentStage + 1) % 7;
+        // Общо 6 етапа (0 до 5)
+        this.currentStage = (this.currentStage + 1) % 6;
         console.log("Текущ етап:", this.currentStage);
 
         switch(this.currentStage) {
-            case 0: // 0. Оригинал
-                this.render();
-                break;
-            case 1: // 1. Сиво
-                this.applyGrayscale();
-                break;
-            case 2: // 2. Сиво през 20%
-                this.applyQuantize();
-                break;
-            case 3: // 3. Премахване на петна (Шум)
-                this.applyNoiseReduction();
-                break;
-            case 4: // 4. Черно-бяло
-                this.applyBinary(230); 
-                break;
-            case 5: // 5. Изтъняване
-                this.applyThinning();
-                break;
-            case 6: // 6. Векторизиране
-                this.runTracing();
-                break;
+            case 0: this.render(); break;
+            case 1: this.applyGrayscale(); break;
+            case 2: this.applyQuantize10(); break;
+            case 3: this.applyNoiseReduction(); break;
+            case 4: this.applyLayeredThinning(); break;
+            case 5: this.runTracing(); break;
         }
     },
 
+    // 1. Стандартно сиво
     applyGrayscale: function() {
         const imgData = this.getCleanImageData();
         const data = imgData.data;
@@ -64,21 +58,33 @@ const GraphicsManager = {
         this.renderStage();
     },
 
-    // НОВО: Стъпаловидно сиво през 20%
-    applyQuantize: function() {
+    // 2. Сиво през 10% (0-10% Бяло, 90-100% Черно)
+    applyQuantize10: function() {
         if (!this.stageData) this.applyGrayscale();
         const data = this.stageData.data;
         for (let i = 0; i < data.length; i += 4) {
-            // Закръгляме към 5 стъпки: 0, 51, 102, 153, 204, 255
-            let val = Math.round(data[i] / 51) * 51;
+            const v = data[i];
+            const p = (255 - v) / 255; // Процент сиво (0.0 = бяло, 1.0 = черно)
+            
+            let val;
+            if (p <= 0.10) {
+                val = 255; // Бяло
+            } else if (p >= 0.90) {
+                val = 0;   // Черно
+            } else {
+                // Изчисляване на средната стойност за съответната десетица
+                const bin = Math.floor(p * 10); 
+                const midP = bin * 0.10 + 0.05; 
+                val = Math.round(255 * (1 - midP));
+            }
             data[i] = data[i+1] = data[i+2] = val;
         }
         this.renderStage();
     },
 
-    // НОВО: Медианен филтър за премахване на шум
+    // 3. Медианен филтър за премахване на шум
     applyNoiseReduction: function() {
-        if (!this.stageData) this.applyQuantize();
+        if (!this.stageData) this.applyQuantize10();
         const width = this.canvas.width;
         const height = this.canvas.height;
         const data = this.stageData.data;
@@ -87,15 +93,13 @@ const GraphicsManager = {
         for (let y = 1; y < height - 1; y++) {
             for (let x = 1; x < width - 1; x++) {
                 let vals = [];
-                // Взимаме 3x3 матрица около пиксела
                 for (let dy = -1; dy <= 1; dy++) {
                     for (let dx = -1; dx <= 1; dx++) {
                         vals.push(data[((y + dy) * width + (x + dx)) * 4]);
                     }
                 }
-                // Сортираме и взимаме средната стойност (поглъщане на петна)
                 vals.sort((a, b) => a - b);
-                let median = vals[4];
+                let median = vals[4]; // Взимаме средния елемент
                 
                 const idx = (y * width + x) * 4;
                 result[idx] = result[idx+1] = result[idx+2] = median;
@@ -105,41 +109,93 @@ const GraphicsManager = {
         this.renderStage();
     },
 
-    applyBinary: function(threshold) {
+    // 4. Послойна скелетизация с проверка за припокриване (3px)
+    applyLayeredThinning: function() {
         if (!this.stageData) this.applyNoiseReduction();
-        const data = this.stageData.data;
-        for (let i = 0; i < data.length; i += 4) {
-            const val = data[i] < threshold ? 0 : 255;
-            data[i] = data[i+1] = data[i+2] = val;
-        }
-        this.renderStage();
-    },
-
-    applyThinning: function() {
-        if (!this.stageData) this.applyBinary(230);
         const width = this.canvas.width;
         const height = this.canvas.height;
         const data = this.stageData.data;
         
-        const result = new Uint8ClampedArray(data);
-        for (let y = 1; y < height - 1; y++) {
-            for (let x = 1; x < width - 1; x++) {
-                const idx = (y * width + x) * 4;
-                if (data[idx] === 0) { 
-                    let neighbors = 0;
-                    if (data[((y-1)*width + x)*4] === 0) neighbors++;
-                    if (data[((y+1)*width + x)*4] === 0) neighbors++;
-                    if (data[(y*width + x-1)*4] === 0) neighbors++;
-                    if (data[(y*width + x+1)*4] === 0) neighbors++;
-                    
-                    if (neighbors > 3) result[idx] = result[idx+1] = result[idx+2] = 255;
+        // Намиране на всички уникални нюанси (без бялото)
+        let uniqueVals = new Set();
+        for(let i = 0; i < data.length; i += 4) {
+            if (data[i] < 255) uniqueVals.add(data[i]);
+        }
+        // Сортиране от най-светло (най-висока RGB стойност) към най-тъмно (0)
+        let layers = Array.from(uniqueVals).sort((a, b) => b - a);
+
+        // Мастър масив за крайния скелет (0 = бяло пространство, 1 = черна линия)
+        const masterSkeleton = new Uint8Array(width * height);
+
+        for (let val of layers) {
+            // Създаване на маска за текущия слой
+            const binary = new Uint8Array(width * height);
+            for (let y = 0; y < height; y++) {
+                for (let x = 0; x < width; x++) {
+                    if (data[(y * width + x) * 4] === val) binary[y * width + x] = 1;
                 }
             }
+
+            // Изтъняване (запазваме само контура, където няма 4 съседа)
+            const thinned = new Uint8Array(width * height);
+            for (let y = 1; y < height - 1; y++) {
+                for (let x = 1; x < width - 1; x++) {
+                    const idx = y * width + x;
+                    if (binary[idx] === 1) {
+                        let neighbors = 0;
+                        if (binary[(y - 1) * width + x] === 1) neighbors++;
+                        if (binary[(y + 1) * width + x] === 1) neighbors++;
+                        if (binary[y * width + x - 1] === 1) neighbors++;
+                        if (binary[y * width + x + 1] === 1) neighbors++;
+                        
+                        // Ако пикселът е на границата, го запазваме в този слой
+                        if (neighbors <= 3) thinned[idx] = 1;
+                    }
+                }
+            }
+
+            // Обединяване с мастър масива (Проверка за 3px радиус)
+            for (let y = 1; y < height - 1; y++) {
+                for (let x = 1; x < width - 1; x++) {
+                    if (thinned[y * width + x] === 1) {
+                        let overlap = false;
+                        // Проверка в радиус 3 пиксела (Евклидово разстояние <= 3)
+                        for (let dy = -3; dy <= 3; dy++) {
+                            for (let dx = -3; dx <= 3; dx++) {
+                                if (dx*dx + dy*dy <= 9) {
+                                    const ny = y + dy;
+                                    const nx = x + dx;
+                                    if (ny >= 0 && ny < height && nx >= 0 && nx < width) {
+                                        if (masterSkeleton[ny * width + nx] === 1) {
+                                            overlap = true;
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+                            if (overlap) break;
+                        }
+                        // Ако няма друга линия наблизо, добавяме тази
+                        if (!overlap) {
+                            masterSkeleton[y * width + x] = 1;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Записване на мастър скелета обратно в stageData
+        const result = new Uint8ClampedArray(data.length);
+        for (let i = 0; i < masterSkeleton.length; i++) {
+            const color = masterSkeleton[i] === 1 ? 0 : 255; // 1 става Черно (0), 0 става Бяло (255)
+            result[i * 4] = result[i * 4 + 1] = result[i * 4 + 2] = color;
+            result[i * 4 + 3] = 255;
         }
         this.stageData.data.set(result);
         this.renderStage();
     },
 
+    // 5. Векторизиране
     runTracing: function() {
         this.executeTracingAlgorithm(); 
         this.render(); 
@@ -163,6 +219,7 @@ const GraphicsManager = {
             for (let x = 0; x < width; x++) {
                 const idx = y * width + x;
                 
+                // В Етап 4 черните линии имат RGB = 0
                 if (data[idx * 4] === 0 && !visited[idx]) {
                     const path = this.tracePath(x, y, data, visited, width, height, searchRadius);
                     
@@ -246,7 +303,6 @@ const GraphicsManager = {
     removeSpikes: function(points, maxDist, minAngle) {
         if (points.length <= 2) return points;
         const result = [points[0]];
-        
         for (let i = 1; i < points.length - 1; i++) {
             const prev = result[result.length - 1];
             const curr = points[i];
@@ -254,16 +310,13 @@ const GraphicsManager = {
             
             const dist1 = Math.hypot(curr.x - prev.x, curr.y - prev.y);
             const dist2 = Math.hypot(next.x - curr.x, next.y - curr.y);
-            
             const angle1 = Math.atan2(curr.y - prev.y, curr.x - prev.x);
             const angle2 = Math.atan2(next.y - curr.y, next.x - curr.x);
             
             let diff = Math.abs(angle1 - angle2);
             if (diff > Math.PI) diff = 2 * Math.PI - diff;
             
-            if ((dist1 <= maxDist || dist2 <= maxDist) && diff > minAngle) {
-                continue; 
-            }
+            if ((dist1 <= maxDist || dist2 <= maxDist) && diff > minAngle) continue; 
             result.push(curr);
         }
         result.push(points[points.length - 1]);
@@ -273,7 +326,6 @@ const GraphicsManager = {
     optimizePolyline: function(points, angleTolerance) {
         if (points.length <= 2) return points;
         const optimized = [points[0]];
-        
         for (let i = 1; i < points.length - 1; i++) {
             const prev = optimized[optimized.length - 1];
             const curr = points[i];
@@ -285,9 +337,7 @@ const GraphicsManager = {
             let diff = Math.abs(angle1 - angle2);
             if (diff > Math.PI) diff = 2 * Math.PI - diff; 
             
-            if (diff > angleTolerance) {
-                optimized.push(curr);
-            }
+            if (diff > angleTolerance) optimized.push(curr);
         }
         optimized.push(points[points.length - 1]);
         return optimized;
@@ -332,18 +382,15 @@ const GraphicsManager = {
         });
     },
 
-    // НОВО: Добавяне на 1px бяло поле при подготовка на данните
+    // 1px бяло поле (Padding)
     getCleanImageData: function() {
         const tempCanvas = document.createElement('canvas');
         tempCanvas.width = this.canvas.width;
         tempCanvas.height = this.canvas.height;
         const tempCtx = tempCanvas.getContext('2d');
         
-        // Запълваме целия canvas с бяло
         tempCtx.fillStyle = "#ffffff";
         tempCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
-        
-        // Рисуваме снимката отместена с 1 пиксел
         tempCtx.drawImage(this.bgImage, 1, 1, this.bgImage.naturalWidth, this.bgImage.naturalHeight);
         
         return tempCtx.getImageData(0, 0, this.canvas.width, this.canvas.height);
@@ -360,12 +407,11 @@ const GraphicsManager = {
         if (this.bgImage.src) {
             this.ctx.save();
             this.ctx.globalAlpha = parseFloat(this.imgOpacity);
-            // Рисуваме с 1px отместване за съответствие с координатите на алгоритъма
             this.ctx.drawImage(this.bgImage, 1, 1, this.bgImage.naturalWidth, this.bgImage.naturalHeight);
             this.ctx.restore();
         }
 
-        if (this.currentStage === 6) {
+        if (this.currentStage === 5) {
             this.ctx.strokeStyle = "#2d3d4c";
             this.ctx.lineWidth = 1;
             this.lines.forEach(l => {
@@ -393,7 +439,6 @@ const GraphicsManager = {
                 const reader = new FileReader();
                 reader.onload = (f) => {
                     this.bgImage.onload = () => {
-                        // НОВО: Увеличаваме размера с +2 за бялото поле (1px от всяка страна)
                         this.canvas.width = this.bgImage.naturalWidth + 2;
                         this.canvas.height = this.bgImage.naturalHeight + 2;
                         this.currentStage = 0;
@@ -414,9 +459,5 @@ const GraphicsManager = {
         }
     }
 };
-
-function setTool(tool) { GraphicsManager.currentTool = tool; }
-function exportSVG() {}
-function applyRelation(type) {}
 
 window.addEventListener('load', () => GraphicsManager.init());
