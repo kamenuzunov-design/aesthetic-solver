@@ -73,8 +73,8 @@
 								   style="flex: 1; padding: 8px; border: 1px solid #ccc; border-radius: 4px; background: #fff; font-family: monospace;" 
 								   placeholder="The numbers will appear here...">
 							<button id="ui-copy-share" onclick="copyAndShare()" 
-									style="padding: 8px 15px; cursor: pointer; background-color: #2d3d4c; color: white; border: none; border-radius: 4px;">
-									Копирай
+								style="padding: 8px 15px; cursor: pointer; background-color: #2d3d4c; color: white; border: none; border-radius: 4px;">
+								Копирай
 							</button>
 						</div>
 					</div>
@@ -108,58 +108,58 @@
 		</section>
 
 		<section id="sec-geometric" class="app-section" style="display: none; position: relative;">
-			<div id="canvas-wrapper" style="position: relative; width: 100%; background: #fff; border: 1px solid #ccc; overflow: hidden; height: 85vh; border-radius: 8px;">
+			<!-- ХОРИЗОНТАЛЕН TOOLBAR НАД CANVAS-А -->
+			<div class="geo-toolbar">
+				<!-- Група: Файл -->
+				<label for="imgUpload" class="geo-toolbar-btn" title="Качи изображение">
+					<span class="material-symbols-outlined">upload_file</span>
+				</label>
+				<input type="file" id="imgUpload" accept="image/*" style="display: none;">
+
+				<!-- Прозрачност -->
+				<div class="geo-toolbar-opacity" title="Прозрачност на оригинала">
+					<span class="material-symbols-outlined" style="font-size: 18px;">contrast</span>
+					<input type="range" id="imgOpacity" min="0" max="1" step="0.1" value="0.5">
+				</div>
+
+				<div class="geo-toolbar-sep"></div>
+
+				<!-- Група: Инструменти -->
+				<button id="ui-geo-point" class="geo-toolbar-btn" onclick="setTool('point')" title="Точка">
+					<span class="material-symbols-outlined">radio_button_checked</span>
+				</button>
+				<button id="ui-geo-line" class="geo-toolbar-btn" onclick="setTool('line')" title="Линия" style="font-weight: bold; font-size: 20px;">
+					/
+				</button>
+
+				<div class="geo-toolbar-sep"></div>
+
+				<!-- Група: Връзки -->
+				<button id="ui-rel-horizontal" class="geo-toolbar-btn" onclick="applyRelation('horizontal')" title="Хоризонтално">
+					<span class="material-symbols-outlined">horizontal_rule</span>
+				</button>
+				<button id="ui-rel-vertical" class="geo-toolbar-btn" onclick="applyRelation('vertical')" title="Вертикално" style="font-weight: bold; font-size: 18px;">
+					|
+				</button>
+				<button id="ui-rel-equal" class="geo-toolbar-btn" onclick="applyRelation('equal')" title="Равни дължини">
+					<span class="material-symbols-outlined">drag_handle</span>
+				</button>
+				<button id="ui-rel-fix" class="geo-toolbar-btn geo-toolbar-btn--danger" onclick="applyRelation('fix')" title="Фиксиране">
+					<span class="material-symbols-outlined">lock</span>
+				</button>
+
+				<div class="geo-toolbar-sep"></div>
+
+				<!-- Група: Експорт -->
+				<button id="ui-geo-export" class="geo-toolbar-btn geo-toolbar-btn--success" onclick="exportSVG()" title="Запис (SVG)">
+					<span class="material-symbols-outlined">download</span>
+				</button>
+			</div>
+
+			<!-- КАНВА (CANVAS) -->
+			<div id="canvas-wrapper" style="position: relative; width: 100%; background: #fff; border: 1px solid #ccc; overflow: hidden; height: calc(85vh - 52px); border-radius: 0 0 8px 8px;">
 				<canvas id="mainCanvas" style="position: absolute; top: 0; left: 0; z-index: 2;"></canvas>
 				<canvas id="gridCanvas" style="position: absolute; top: 0; left: 0; z-index: 1; pointer-events: none;"></canvas>
-				
-				<!-- ПЛАВАЩО МЕНЮ С ИНСТРУМЕНТИ -->
-				<div class="toolbar" style="position: absolute; top: 20px; right: 20px; background: rgba(255, 255, 255, 0.95); padding: 10px; border-radius: 12px; border: 1px solid rgba(0,0,0,0.1); box-shadow: 0 4px 12px rgba(0,0,0,0.15); display: flex; flex-direction: column; gap: 8px; z-index: 10; align-items: center;">
-					
-					<!-- Качване на файл -->
-					<label for="imgUpload" style="cursor: pointer; padding: 8px; background: #fff; border-radius: 8px; border: 1px solid #ccc; display: flex; justify-content: center; align-items: center;" title="Качи изображение (Файл)" onmouseover="this.style.background='#f0f0f0'" onmouseout="this.style.background='#fff'">
-						<span class="material-symbols-outlined">upload_file</span>
-					</label>
-					<input type="file" id="imgUpload" accept="image/*" style="display: none;">
-
-					<!-- Прозрачност -->
-					<div style="display: flex; align-items: center; justify-content: center; width: 100%; margin-top: 4px;" title="Прозрачност на оригинала">
-						<span class="material-symbols-outlined" style="font-size: 18px; margin-right: 4px;">contrast</span>
-						<input type="range" id="imgOpacity" min="0" max="1" step="0.1" value="0.5" style="width: 50px; height: 4px; accent-color: #2d3d4c; cursor: pointer;">
-					</div>
-
-					<hr style="width: 100%; border: 0; border-top: 1px solid #ddd; margin: 4px 0;">
-
-					<!-- Инструменти -->
-					<button id="ui-geo-point" onclick="setTool('point')" style="background: none; border: 1px solid transparent; cursor: pointer; border-radius: 8px; padding: 8px; display: flex; align-items: center; justify-content: center;" title="Точка" onmouseover="this.style.background='#e3f2fd'" onmouseout="this.style.background='none'">
-						<span class="material-symbols-outlined">radio_button_checked</span>
-					</button>
-					<button id="ui-geo-line" onclick="setTool('line')" style="background: none; border: 1px solid transparent; cursor: pointer; border-radius: 8px; padding: 8px; display: flex; align-items: center; justify-content: center;" title="Линия" onmouseover="this.style.background='#e3f2fd'" onmouseout="this.style.background='none'">
-						<span class="material-symbols-outlined">shape_line</span>
-					</button>
-
-					<hr style="width: 100%; border: 0; border-top: 1px solid #ddd; margin: 4px 0;">
-
-					<!-- Връзки -->
-					<button id="ui-rel-horizontal" onclick="applyRelation('horizontal')" style="background: none; border: 1px solid transparent; cursor: pointer; border-radius: 8px; padding: 8px; display: flex; align-items: center; justify-content: center;" title="Хоризонтално" onmouseover="this.style.background='#e3f2fd'" onmouseout="this.style.background='none'">
-						<span class="material-symbols-outlined">horizontal_rule</span>
-					</button>
-					<button id="ui-rel-vertical" onclick="applyRelation('vertical')" style="background: none; border: 1px solid transparent; cursor: pointer; border-radius: 8px; padding: 8px; display: flex; align-items: center; justify-content: center;" title="Вертикално" onmouseover="this.style.background='#e3f2fd'" onmouseout="this.style.background='none'">
-						<span class="material-symbols-outlined">height</span>
-					</button>
-					<button id="ui-rel-equal" onclick="applyRelation('equal')" style="background: none; border: 1px solid transparent; cursor: pointer; border-radius: 8px; padding: 8px; display: flex; align-items: center; justify-content: center;" title="Равни дължини" onmouseover="this.style.background='#e3f2fd'" onmouseout="this.style.background='none'">
-						<span class="material-symbols-outlined">drag_handle</span>
-					</button>
-					<button id="ui-rel-fix" onclick="applyRelation('fix')" style="background: none; border: 1px solid transparent; cursor: pointer; border-radius: 8px; padding: 8px; display: flex; align-items: center; justify-content: center;" title="Фиксиране" onmouseover="this.style.background='#fce4ec'" onmouseout="this.style.background='none'">
-						<span class="material-symbols-outlined">lock</span>
-					</button>
-
-					<hr style="width: 100%; border: 0; border-top: 1px solid #ddd; margin: 4px 0;">
-
-					<!-- Експорт -->
-					<button id="ui-geo-export" onclick="exportSVG()" style="background: none; border: 1px solid transparent; cursor: pointer; border-radius: 8px; padding: 8px; display: flex; align-items: center; justify-content: center; color: #28a745;" title="Запис (SVG)" onmouseover="this.style.background='#e8f5e9'" onmouseout="this.style.background='none'">
-						<span class="material-symbols-outlined">download</span>
-					</button>
-				</div>
 			</div>
 		</section>
 
@@ -235,6 +235,11 @@
             
             if(sectionId === 'geometric' && typeof CanvasManager !== 'undefined') {
                 CanvasManager.init();
+                // Автоматично отваряне на прозореца за качване
+                setTimeout(() => {
+                    const uploadInput = document.getElementById('imgUpload');
+                    if (uploadInput) uploadInput.click();
+                }, 100);
                 // Също така се уверяваме, че GraphicsManager ще преоразмери правилно след показване
                 if (typeof GraphicsManager !== 'undefined') GraphicsManager.resize();
             }
