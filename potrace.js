@@ -1299,6 +1299,7 @@ var Potrace = (function() {
     setParameter: setParameter,
     process: process,
     getSVG: getSVG,
+    getPathList: function() { return pathlist; },
     img: imgElement
   };
 })();

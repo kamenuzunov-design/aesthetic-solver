@@ -280,19 +280,4 @@ function copyAndShare() {
         setTimeout(() => btn.innerText = original, 2000);
     }
 }
-
-const CanvasManager = {
-    init: () => {
-        const canvas = document.getElementById('mainCanvas');
-        if (!canvas) return;
-        const ctx = canvas.getContext('2d');
-        canvas.width = 600;
-        canvas.height = 400;
-        ctx.fillStyle = "#ffffff";
-        ctx.fillRect(0, 0, 600, 400);
-    }
-};
-
-window.addEventListener('load', () => {
-    CanvasManager.init();
-});
+
