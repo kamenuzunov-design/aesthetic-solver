@@ -1,6 +1,6 @@
 /**
  * Aesthetic Solver - Графичен модул (graphics.js)
- * Векторизиране чрез контури (Potrace методика) и Bounding Boxes
+ * Оригинална Potrace интеграция
  */
 
 const GraphicsManager = {
@@ -8,14 +8,10 @@ const GraphicsManager = {
     ctx: null,
     bgImage: new Image(),
     imgOpacity: 0.5,
+    potraceImg: null, // Кешираме генерирания SVG обект
     
     currentStage: 0,
-    stageData: null, 
     
-    points: [], 
-    lines: [],  
-    boundingBoxes: [],
-
     init: function() {
         this.canvas = document.getElementById('mainCanvas');
         if (!this.canvas) return;
@@ -33,325 +29,66 @@ const GraphicsManager = {
     nextStage: function() {
         if (!this.bgImage.src) return;
         
-        this.currentStage = (this.currentStage + 1) % 6;
-        console.log("Текущ етап:", this.currentStage);
+        this.currentStage = (this.currentStage + 1) % 2; 
+        console.log("Текущ етап:", this.currentStage === 0 ? "Оригинал" : "Potrace Векторизация");
 
-        switch(this.currentStage) {
-            case 0: this.render(); break;
-            case 1: this.applyGrayscale(); break;
-            case 2: this.applyCustomQuantize(); break;
-            case 3: this.applyNoiseReduction(); break;
-            case 4: this.applyOutlineExtraction(); break; // Контури вместо скелетизация
-            case 5: this.runTracing(); break;             // Полигони и Bounding Boxes
+        if (this.currentStage === 0) {
+            this.render();
+        } else {
+            this.runPotrace();
         }
     },
 
-    applyGrayscale: function() {
-        const imgData = this.getCleanImageData();
-        const data = imgData.data;
-        for (let i = 0; i < data.length; i += 4) {
-            const avg = (data[i] + data[i+1] + data[i+2]) / 3;
-            data[i] = data[i+1] = data[i+2] = avg;
-        }
-        this.stageData = imgData;
-        this.renderStage();
-    },
-
-    applyCustomQuantize: function() {
-        if (!this.stageData) this.applyGrayscale();
-        const data = this.stageData.data;
-        for (let i = 0; i < data.length; i += 4) {
-            const v = data[i];
-            const p = (255 - v) / 255; 
-            
-            let val;
-            if (p <= 0.15) {
-                val = 255; // Бяло
-            } else if (p <= 0.85) {
-                val = 128; // Сиво
-            } else {
-                val = 0;   // Черно
-            }
-            data[i] = data[i+1] = data[i+2] = val;
-        }
-        this.renderStage();
-    },
-
-    applyNoiseReduction: function() {
-        if (!this.stageData) this.applyCustomQuantize();
-        const width = this.canvas.width;
-        const height = this.canvas.height;
-        const data = this.stageData.data;
-        const result = new Uint8ClampedArray(data);
-
-        for (let y = 1; y < height - 1; y++) {
-            for (let x = 1; x < width - 1; x++) {
-                let vals = [];
-                for (let dy = -1; dy <= 1; dy++) {
-                    for (let dx = -1; dx <= 1; dx++) {
-                        vals.push(data[((y + dy) * width + (x + dx)) * 4]);
-                    }
-                }
-                vals.sort((a, b) => a - b);
-                let median = vals[4];
-                
-                const idx = (y * width + x) * 4;
-                result[idx] = result[idx+1] = result[idx+2] = median;
-            }
-        }
-        this.stageData.data.set(result);
-        this.renderStage();
-    },
-
-    // 4. Извличане на контури (Ръбове)
-    applyOutlineExtraction: function() {
-        if (!this.stageData) this.applyNoiseReduction();
-        const width = this.canvas.width;
-        const height = this.canvas.height;
-        const data = this.stageData.data;
-        
-        const binary = new Uint8Array(width * height);
-        for (let i = 0; i < data.length; i += 4) {
-            binary[i / 4] = data[i] < 250 ? 1 : 0; 
-        }
-
-        const edgeMask = new Uint8Array(width * height);
-        for (let y = 1; y < height - 1; y++) {
-            for (let x = 1; x < width - 1; x++) {
-                const idx = y * width + x;
-                if (binary[idx] === 1) {
-                    if (binary[idx - 1] === 0 || binary[idx + 1] === 0 ||
-                        binary[idx - width] === 0 || binary[idx + width] === 0) {
-                        edgeMask[idx] = 1;
-                    }
-                }
-            }
-        }
-
-        const result = new Uint8ClampedArray(data.length);
-        for (let i = 0; i < edgeMask.length; i++) {
-            const color = edgeMask[i] === 1 ? 0 : 255; 
-            result[i * 4] = result[i * 4 + 1] = result[i * 4 + 2] = color;
-            result[i * 4 + 3] = 255;
-        }
-        this.stageData.data.set(result);
-        this.renderStage();
-    },
-
-    // 5. Проследяване на полигони и Bounding Boxes
-    runTracing: function() {
-        this.executeTracingAlgorithm(); 
-        this.render(); 
-    },
-
-    executeTracingAlgorithm: function() {
-        if (!this.stageData) return;
-        const width = this.canvas.width;
-        const height = this.canvas.height;
-        const data = this.stageData.data;
-        const visited = new Uint8Array(width * height);
-        
-        this.lines = [];
-        this.boundingBoxes = [];
-        const simplifyTol = 2.0; 
-
-        for (let y = 0; y < height; y++) {
-            for (let x = 0; x < width; x++) {
-                const idx = y * width + x;
-                
-                if (data[idx * 4] === 0 && !visited[idx]) {
-                    // Moore-Neighbor tracing
-                    const path = this.traceMooreNeighbor(x, y, data, visited, width, height);
-                    
-                    if (path.length > 5) { 
-                        let simplified = this.douglasPeucker(path, simplifyTol);
-                        
-                        // Затваряне на полигона
-                        const first = simplified[0];
-                        const last = simplified[simplified.length - 1];
-                        if (Math.hypot(first.x - last.x, first.y - last.y) < 20) {
-                            simplified.push({...first}); 
-                        }
-
-                        this.addAsVectorLines(simplified);
-                        this.extractBoundingBox(simplified);
-                    }
-                }
-            }
-        }
-        this.rebuildPoints();
-    },
-
-    traceMooreNeighbor: function(startX, startY, data, visited, width, height) {
-        const contour = [];
-        const dx = [1, 1, 0, -1, -1, -1, 0, 1];
-        const dy = [0, 1, 1, 1, 0, -1, -1, -1];
-        
-        let cx = startX;
-        let cy = startY;
-        let entry_dir = 7; 
-        
-        const maxIter = width * height;
-        let iters = 0;
-
-        while (iters++ < maxIter) {
-            contour.push({ x: cx, y: cy });
-            visited[cy * width + cx] = 1;
-
-            let next_cx = -1, next_cy = -1;
-            let found = false;
-            
-            let scan_dir = (entry_dir + 6) % 8; 
-            
-            for (let i = 0; i < 8; i++) {
-                let d = (scan_dir + i) % 8;
-                let nx = cx + dx[d];
-                let ny = cy + dy[d];
-                
-                if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
-                    if (data[(ny * width + nx) * 4] === 0) {
-                        next_cx = nx;
-                        next_cy = ny;
-                        entry_dir = d;
-                        found = true;
-                        break;
-                    }
-                }
-            }
-            
-            if (!found) break; 
-            
-            cx = next_cx;
-            cy = next_cy;
-            
-            if (cx === startX && cy === startY) {
-                break;
-            }
-        }
-        return contour;
-    },
-
-    sendToSolver: function() {
-        if (this.boundingBoxes.length === 0 && this.lines.length === 0) {
-            alert((window.currentLangData && window.currentLangData["ui-alert-no-vectors"]) || "Няма открити елементи. Моля, векторизирайте изображение първо.");
+    runPotrace: function() {
+        if (!window.Potrace) {
+            console.error("Библиотеката Potrace не е намерена.");
             return;
         }
 
-        let dimensions = new Set();
-        this.boundingBoxes.forEach(box => {
-            let bw = box.maxX - box.minX;
-            let bh = box.maxY - box.minY;
-            if (bw > 5) dimensions.add(Math.round(bw));
-            if (bh > 5) dimensions.add(Math.round(bh));
+        if (this.potraceImg) {
+            this.renderSvg(); // Използваме кешираното изображение, ако вече сме го генерирали
+            return;
+        }
+
+        Potrace.setParameter({
+            alphamax: 1,
+            optcurve: true,
+            opttolerance: 0.2,
+            turdsize: 2,
+            turnpolicy: "black"
         });
 
-        this.lines.forEach(l => {
-            let len = Math.hypot(l.p1.x - l.p2.x, l.p1.y - l.p2.y);
-            if (len > 15) dimensions.add(Math.round(len));
-        });
-
-        let numsArray = Array.from(dimensions).sort((a,b) => a - b);
-        
-        let inputElement = document.getElementById('inputChain');
-        if (inputElement) {
-            inputElement.value = numsArray.join(', ');
-        }
-
-        if (typeof navigateTo === 'function') {
-            navigateTo('numeric');
-        }
-
-        if (typeof runInverseAnalysis === 'function') {
-            if (numsArray.length < 5) {
-                alert((window.currentLangData && window.currentLangData["ui-alert-min"]) || "Не са открити достатъчно размери (минимум 5), но данните са прехвърлени.");
-            } else {
-                runInverseAnalysis();
-            }
-        }
-    },
-
-    douglasPeucker: function(points, tolerance) {
-        if (points.length <= 2) return points;
-        let dmax = 0, index = 0;
-        const end = points.length - 1;
-
-        for (let i = 1; i < end; i++) {
-            const d = this.distToSegment(points[i], points[0], points[end]);
-            if (d > dmax) { index = i; dmax = d; }
-        }
-
-        if (dmax > tolerance) {
-            const res1 = this.douglasPeucker(points.slice(0, index + 1), tolerance);
-            const res2 = this.douglasPeucker(points.slice(index), tolerance);
-            return res1.slice(0, res1.length - 1).concat(res2);
-        } else {
-            return [points[0], points[end]];
-        }
-    },
-
-    distToSegment: function(p, a, b) {
-        const l2 = Math.pow(a.x - b.x, 2) + Math.pow(a.y - b.y, 2);
-        if (l2 === 0) return Math.sqrt(Math.pow(p.x - a.x, 2) + Math.pow(p.y - a.y, 2));
-        let t = ((p.x - a.x) * (b.x - a.x) + (p.y - a.y) * (b.y - a.y)) / l2;
-        t = Math.max(0, Math.min(1, t));
-        return Math.sqrt(Math.pow(p.x - (a.x + t * (b.x - a.x)), 2) + Math.pow(p.y - (a.y + t * (b.y - a.y)), 2));
-    },
-
-    extractBoundingBox: function(points) {
-        if(points.length === 0) return;
-        let minX = points[0].x, maxX = points[0].x;
-        let minY = points[0].y, maxY = points[0].y;
-
-        for(let p of points) {
-            if(p.x < minX) minX = p.x;
-            if(p.x > maxX) maxX = p.x;
-            if(p.y < minY) minY = p.y;
-            if(p.y > maxY) maxY = p.y;
-        }
-
-        this.boundingBoxes.push({minX, maxX, minY, maxY});
-    },
-
-    addAsVectorLines: function(points) {
-        for (let i = 0; i < points.length - 1; i++) {
-            this.lines.push({
-                p1: { x: points[i].x, y: points[i].y },
-                p2: { x: points[i + 1].x, y: points[i + 1].y },
-                id: Math.random()
-            });
-        }
-    },
-
-    rebuildPoints: function() {
-        this.points = [];
-        const seen = new Set();
-        this.lines.forEach(l => {
-            [l.p1, l.p2].forEach(p => {
-                const key = `${p.x},${p.y}`;
-                if (!seen.has(key)) {
-                    seen.add(key);
-                    this.points.push({ ...p, id: Math.random() });
-                }
-            });
+        Potrace.loadImageFromUrl(this.bgImage.src);
+        Potrace.process(() => {
+            const svgString = Potrace.getSVG(1, "curve");
+            
+            const DOMURL = window.URL || window.webkitURL || window;
+            const svgBlob = new Blob([svgString], {type: 'image/svg+xml;charset=utf-8'});
+            const url = DOMURL.createObjectURL(svgBlob);
+            
+            const img = new Image();
+            img.onload = () => {
+                this.potraceImg = img;
+                this.renderSvg();
+                DOMURL.revokeObjectURL(url);
+            };
+            img.src = url;
         });
     },
 
-    getCleanImageData: function() {
-        const tempCanvas = document.createElement('canvas');
-        tempCanvas.width = this.canvas.width;
-        tempCanvas.height = this.canvas.height;
-        const tempCtx = tempCanvas.getContext('2d');
+    renderSvg: function() {
+        if (!this.potraceImg) return;
         
-        tempCtx.fillStyle = "#ffffff";
-        tempCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
-        tempCtx.drawImage(this.bgImage, 1, 1, this.bgImage.naturalWidth, this.bgImage.naturalHeight);
-        
-        return tempCtx.getImageData(0, 0, this.canvas.width, this.canvas.height);
-    },
-
-    renderStage: function() {
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-        this.ctx.putImageData(this.stageData, 0, 0);
+        
+        // Рисуваме оригиналното изображение отдолу с определена прозрачност
+        this.ctx.save();
+        this.ctx.globalAlpha = parseFloat(this.imgOpacity);
+        this.ctx.drawImage(this.bgImage, 1, 1, this.bgImage.naturalWidth, this.bgImage.naturalHeight);
+        this.ctx.restore();
+
+        // Рисуваме Potrace вектора отгоре
+        this.ctx.drawImage(this.potraceImg, 1, 1);
     },
 
     render: function() {
@@ -362,33 +99,6 @@ const GraphicsManager = {
             this.ctx.globalAlpha = parseFloat(this.imgOpacity);
             this.ctx.drawImage(this.bgImage, 1, 1, this.bgImage.naturalWidth, this.bgImage.naturalHeight);
             this.ctx.restore();
-        }
-
-        if (this.currentStage === 5) {
-            this.ctx.strokeStyle = "#2d3d4c";
-            this.ctx.lineWidth = 1;
-            this.lines.forEach(l => {
-                this.ctx.beginPath();
-                this.ctx.moveTo(l.p1.x, l.p1.y);
-                this.ctx.lineTo(l.p2.x, l.p2.y);
-                this.ctx.stroke();
-            });
-
-            // Рисуване на Bounding Boxes (оранжеви пунктири)
-            this.ctx.strokeStyle = "#ff9900";
-            this.ctx.lineWidth = 1.5;
-            this.ctx.setLineDash([5, 5]);
-            this.boundingBoxes.forEach(box => {
-                this.ctx.strokeRect(box.minX, box.minY, box.maxX - box.minX, box.maxY - box.minY);
-            });
-            this.ctx.setLineDash([]); 
-
-            this.ctx.fillStyle = "#ff4444";
-            this.points.forEach(p => {
-                this.ctx.beginPath();
-                this.ctx.arc(p.x, p.y, 1.5, 0, Math.PI * 2);
-                this.ctx.fill();
-            });
         }
     },
 
@@ -404,6 +114,7 @@ const GraphicsManager = {
                         this.canvas.width = this.bgImage.naturalWidth + 2;
                         this.canvas.height = this.bgImage.naturalHeight + 2;
                         this.currentStage = 0;
+                        this.potraceImg = null; // Нулираме кеша при нова снимка
                         this.render();
                     };
                     this.bgImage.src = f.target.result;
@@ -416,7 +127,11 @@ const GraphicsManager = {
         if (opacityRange) {
             opacityRange.addEventListener('input', (e) => {
                 this.imgOpacity = e.target.value;
-                this.render();
+                if (this.currentStage === 0) {
+                    this.render();
+                } else {
+                    this.renderSvg();
+                }
             });
         }
     }
