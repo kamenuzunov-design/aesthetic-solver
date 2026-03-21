@@ -52,10 +52,10 @@ const GraphicsManager = {
         }
 
         Potrace.setParameter({
-            alphamax: 1,
-            optcurve: true,
+            alphamax: 0,
+            optcurve: false,
             opttolerance: 0.2,
-            turdsize: 2,
+            turdsize: 100,
             turnpolicy: "black"
         });
 
