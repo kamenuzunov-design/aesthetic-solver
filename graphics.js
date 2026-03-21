@@ -10,7 +10,7 @@ const GraphicsManager = {
     imgOpacity: 0.1,
     potraceImg: null, // Кешираме генерирания SVG обект
     lastSvgString: null, // Стринг за експорт
-    
+     
     // Мащабиране и центриране
     imgScale: 1,
     scaledW: 0,

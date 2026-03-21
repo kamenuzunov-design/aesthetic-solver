@@ -15,7 +15,7 @@ async function setLanguage(langCode) {
                 element.textContent = data[key];
             }
         });
-
+ 
         localStorage.setItem('preferredLang', langCode);
 
         // ЕДВА СЕГА викаме calculate, когато езикът е зареден в window.currentLangData
