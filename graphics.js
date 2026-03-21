@@ -1,6 +1,6 @@
 /**
  * Aesthetic Solver - Графичен модул (graphics.js)
- * 6-етапно векторизиране с послойна скелетизация (БЕЗ проверка за припокриване)
+ * 6-етапно векторизиране с послойна скелетизация (стъпки през 25%)
  */
 
 const GraphicsManager = {
@@ -38,7 +38,7 @@ const GraphicsManager = {
         switch(this.currentStage) {
             case 0: this.render(); break;
             case 1: this.applyGrayscale(); break;
-            case 2: this.applyQuantize10(); break;
+            case 2: this.applyQuantize25(); break;
             case 3: this.applyNoiseReduction(); break;
             case 4: this.applyLayeredThinning(); break;
             case 5: this.runTracing(); break;
@@ -56,21 +56,23 @@ const GraphicsManager = {
         this.renderStage();
     },
 
-    applyQuantize10: function() {
+    // 2. Сиво през 25% (0-25% Бяло, 75-100% Черно)
+    applyQuantize25: function() {
         if (!this.stageData) this.applyGrayscale();
         const data = this.stageData.data;
         for (let i = 0; i < data.length; i += 4) {
             const v = data[i];
-            const p = (255 - v) / 255; 
+            const p = (255 - v) / 255; // Процент сиво (0.0 = бяло, 1.0 = черно)
             
             let val;
-            if (p <= 0.10) {
+            if (p <= 0.25) {
                 val = 255; // Бяло
-            } else if (p >= 0.90) {
+            } else if (p >= 0.75) {
                 val = 0;   // Черно
             } else {
-                const bin = Math.floor(p * 10); 
-                const midP = bin * 0.10 + 0.05; 
+                // Изчисляване на средната стойност за съответната четвъртина (0.375 или 0.625)
+                const bin = Math.floor(p / 0.25); 
+                const midP = bin * 0.25 + 0.125; 
                 val = Math.round(255 * (1 - midP));
             }
             data[i] = data[i+1] = data[i+2] = val;
@@ -79,7 +81,7 @@ const GraphicsManager = {
     },
 
     applyNoiseReduction: function() {
-        if (!this.stageData) this.applyQuantize10();
+        if (!this.stageData) this.applyQuantize25();
         const width = this.canvas.width;
         const height = this.canvas.height;
         const data = this.stageData.data;
