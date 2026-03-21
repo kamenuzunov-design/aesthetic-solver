@@ -9,6 +9,7 @@ const GraphicsManager = {
     bgImage: new Image(),
     imgOpacity: 0.5,
     potraceImg: null, // Кешираме генерирания SVG обект
+    lastSvgString: null, // Стринг за експорт
     
     currentStage: 0,
     
@@ -61,6 +62,7 @@ const GraphicsManager = {
         Potrace.loadImageFromUrl(this.bgImage.src);
         Potrace.process(() => {
             const svgString = Potrace.getSVG(1, "curve");
+            this.lastSvgString = svgString;
             
             const DOMURL = window.URL || window.webkitURL || window;
             const svgBlob = new Blob([svgString], {type: 'image/svg+xml;charset=utf-8'});
@@ -138,7 +140,21 @@ const GraphicsManager = {
 };
 
 function setTool(tool) { GraphicsManager.currentTool = tool; }
-function exportSVG() {}
+function exportSVG() {
+    if (!GraphicsManager.lastSvgString) {
+        alert("Няма векторно изображение за запис. Моля, кликнете върху платното за векторизиране.");
+        return;
+    }
+    const blob = new Blob([GraphicsManager.lastSvgString], {type: "image/svg+xml;charset=utf-8"});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "vectorized_image.svg";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
 function applyRelation(type) {}
 
 window.addEventListener('load', () => GraphicsManager.init());

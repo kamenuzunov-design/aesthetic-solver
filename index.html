@@ -195,9 +195,20 @@
             });
             const target = document.getElementById('sec-' + sectionId);
             if (target) target.style.display = 'block';
+
+            const header = document.querySelector('header');
+            if (header) {
+                if (sectionId === 'geometric') {
+                    header.style.display = 'none';
+                } else {
+                    header.style.display = 'flex';
+                }
+            }
             
             if(sectionId === 'geometric' && typeof CanvasManager !== 'undefined') {
                 CanvasManager.init();
+                // Също така се уверяваме, че GraphicsManager ще преоразмери правилно след показване
+                if (typeof GraphicsManager !== 'undefined') GraphicsManager.resize();
             }
         }
     </script>
