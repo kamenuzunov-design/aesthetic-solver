@@ -1,6 +1,6 @@
 /**
  * Aesthetic Solver - Графичен модул (graphics.js)
- * 6-етапно векторизиране с послойна скелетизация (несиметрична градация)
+ * 6-етапно векторизиране с контури и Bounding Box (Описан правоъгълник)
  */
 
 const GraphicsManager = {
@@ -14,6 +14,7 @@ const GraphicsManager = {
     
     points: [], 
     lines: [],  
+    boundingBoxes: [], // Масив за правоъгълниците
 
     init: function() {
         this.canvas = document.getElementById('mainCanvas');
@@ -40,8 +41,8 @@ const GraphicsManager = {
             case 1: this.applyGrayscale(); break;
             case 2: this.applyCustomQuantize(); break;
             case 3: this.applyNoiseReduction(); break;
-            case 4: this.applyLayeredThinning(); break;
-            case 5: this.runTracing(); break;
+            case 4: this.applyOutlineExtraction(); break; // НОВО: Контури
+            case 5: this.runTracing(); break;             // НОВО: Полигони и Bounding Box
         }
     },
 
@@ -56,7 +57,6 @@ const GraphicsManager = {
         this.renderStage();
     },
 
-    // 2. Несиметрично сиво: 0-20% (бяло), 20-40% (светло сиво), 40-65% (тъмно сиво), 65-100% (черно)
     applyCustomQuantize: function() {
         if (!this.stageData) this.applyGrayscale();
         const data = this.stageData.data;
@@ -65,12 +65,10 @@ const GraphicsManager = {
             const p = (255 - v) / 255; 
             
             let val;
-            if (p <= 0.20) {
+            if (p <= 0.15) {
                 val = 255; // Бяло
-            } else if (p <= 0.40) {
-                val = 192; // Светло сиво
-            } else if (p <= 0.65) {
-                val = 128; // Тъмно сиво
+            } else if (p <= 0.85) {
+                val = 128; // Сиво (50%)
             } else {
                 val = 0;   // Черно
             }
@@ -95,64 +93,46 @@ const GraphicsManager = {
                     }
                 }
                 vals.sort((a, b) => a - b);
-                let median = vals[4];
-                
-                const idx = (y * width + x) * 4;
-                result[idx] = result[idx+1] = result[idx+2] = median;
+                result[(y * width + x) * 4]     = vals[4];
+                result[(y * width + x) * 4 + 1] = vals[4];
+                result[(y * width + x) * 4 + 2] = vals[4];
+                result[(y * width + x) * 4 + 3] = 255;
             }
         }
         this.stageData.data.set(result);
         this.renderStage();
     },
 
-    applyLayeredThinning: function() {
+    // НОВО: Извличане на контури (Edge Detection) вместо скелетизация
+    applyOutlineExtraction: function() {
         if (!this.stageData) this.applyNoiseReduction();
         const width = this.canvas.width;
         const height = this.canvas.height;
         const data = this.stageData.data;
         
-        let uniqueVals = new Set();
-        for(let i = 0; i < data.length; i += 4) {
-            if (data[i] < 255) uniqueVals.add(data[i]);
+        const binary = new Uint8Array(width * height);
+        // Обект е всичко, което не е чисто бяло
+        for (let i = 0; i < data.length; i += 4) {
+            binary[i / 4] = data[i] < 250 ? 1 : 0; 
         }
-        let layers = Array.from(uniqueVals).sort((a, b) => b - a);
 
-        const masterSkeleton = new Uint8Array(width * height);
-
-        for (let val of layers) {
-            const binary = new Uint8Array(width * height);
-            for (let y = 0; y < height; y++) {
-                for (let x = 0; x < width; x++) {
-                    if (data[(y * width + x) * 4] === val) binary[y * width + x] = 1;
-                }
-            }
-
-            const thinned = new Uint8Array(width * height);
-            for (let y = 1; y < height - 1; y++) {
-                for (let x = 1; x < width - 1; x++) {
-                    const idx = y * width + x;
-                    if (binary[idx] === 1) {
-                        let neighbors = 0;
-                        if (binary[(y - 1) * width + x] === 1) neighbors++;
-                        if (binary[(y + 1) * width + x] === 1) neighbors++;
-                        if (binary[y * width + x - 1] === 1) neighbors++;
-                        if (binary[y * width + x + 1] === 1) neighbors++;
-                        
-                        if (neighbors <= 3) thinned[idx] = 1;
+        const edgeMask = new Uint8Array(width * height);
+        for (let y = 1; y < height - 1; y++) {
+            for (let x = 1; x < width - 1; x++) {
+                const idx = y * width + x;
+                if (binary[idx] === 1) {
+                    // Ако има поне един бял съсед, значи е ръб
+                    if (binary[idx - 1] === 0 || binary[idx + 1] === 0 ||
+                        binary[idx - width] === 0 || binary[idx + width] === 0) {
+                        edgeMask[idx] = 1;
                     }
-                }
-            }
-
-            for (let i = 0; i < thinned.length; i++) {
-                if (thinned[i] === 1) {
-                    masterSkeleton[i] = 1;
                 }
             }
         }
 
         const result = new Uint8ClampedArray(data.length);
-        for (let i = 0; i < masterSkeleton.length; i++) {
-            const color = masterSkeleton[i] === 1 ? 0 : 255; 
+        for (let i = 0; i < edgeMask.length; i++) {
+            const color = edgeMask[i] === 1 ? 0 : 255; 
             result[i * 4] = result[i * 4 + 1] = result[i * 4 + 2] = color;
             result[i * 4 + 3] = 255;
         }
@@ -160,6 +140,7 @@ const GraphicsManager = {
         this.renderStage();
     },
 
+    // НОВО: Генериране на полигони и Bounding Boxes
     runTracing: function() {
         this.executeTracingAlgorithm(); 
         this.render(); 
@@ -173,11 +154,9 @@ const GraphicsManager = {
         const visited = new Uint8Array(width * height);
         
         this.lines = [];
+        this.boundingBoxes = [];
         const searchRadius = 3;  
-        const simplifyTol = 1.5; 
-        const angleTol = 5 * (Math.PI / 180); 
-        const spikeTol = 45 * (Math.PI / 180); 
-        const orthoTol = 5; 
+        const simplifyTol = 2.0; 
 
         for (let y = 0; y < height; y++) {
             for (let x = 0; x < width; x++) {
@@ -186,13 +165,18 @@ const GraphicsManager = {
                 if (data[idx * 4] === 0 && !visited[idx]) {
                     const path = this.tracePath(x, y, data, visited, width, height, searchRadius);
                     
-                    if (path.length > 3) {
+                    if (path.length > 10) { // Искаме само достатъчно големи контури
                         let simplified = this.douglasPeucker(path, simplifyTol);
-                        simplified = this.removeSpikes(simplified, 5, spikeTol);
-                        simplified = this.optimizePolyline(simplified, angleTol);
-                        simplified = this.orthogonalizePolyline(simplified, orthoTol);
                         
+                        // Затваряне на полигона, ако краищата са близо
+                        const first = simplified[0];
+                        const last = simplified[simplified.length - 1];
+                        if (Math.hypot(first.x - last.x, first.y - last.y) < 15) {
+                            simplified.push({...first}); 
+                        }
+
                         this.addAsVectorLines(simplified);
+                        this.extractBoundingBox(simplified);
                     }
                 }
             }
@@ -263,62 +247,19 @@ const GraphicsManager = {
         return Math.sqrt(Math.pow(p.x - (a.x + t * (b.x - a.x)), 2) + Math.pow(p.y - (a.y + t * (b.y - a.y)), 2));
     },
 
-    removeSpikes: function(points, maxDist, minAngle) {
-        if (points.length <= 2) return points;
-        const result = [points[0]];
-        for (let i = 1; i < points.length - 1; i++) {
-            const prev = result[result.length - 1];
-            const curr = points[i];
-            const next = points[i + 1];
-            
-            const dist1 = Math.hypot(curr.x - prev.x, curr.y - prev.y);
-            const dist2 = Math.hypot(next.x - curr.x, next.y - curr.y);
-            const angle1 = Math.atan2(curr.y - prev.y, curr.x - prev.x);
-            const angle2 = Math.atan2(next.y - curr.y, next.x - curr.x);
-            
-            let diff = Math.abs(angle1 - angle2);
-            if (diff > Math.PI) diff = 2 * Math.PI - diff;
-            
-            if ((dist1 <= maxDist || dist2 <= maxDist) && diff > minAngle) continue; 
-            result.push(curr);
-        }
-        result.push(points[points.length - 1]);
-        return result;
-    },
+    extractBoundingBox: function(points) {
+        if(points.length === 0) return;
+        let minX = points[0].x, maxX = points[0].x;
+        let minY = points[0].y, maxY = points[0].y;
 
-    optimizePolyline: function(points, angleTolerance) {
-        if (points.length <= 2) return points;
-        const optimized = [points[0]];
-        for (let i = 1; i < points.length - 1; i++) {
-            const prev = optimized[optimized.length - 1];
-            const curr = points[i];
-            const next = points[i + 1];
-            
-            const angle1 = Math.atan2(curr.y - prev.y, curr.x - prev.x);
-            const angle2 = Math.atan2(next.y - curr.y, next.x - curr.x);
-            
-            let diff = Math.abs(angle1 - angle2);
-            if (diff > Math.PI) diff = 2 * Math.PI - diff; 
-            
-            if (diff > angleTolerance) optimized.push(curr);
+        for(let p of points) {
+            if(p.x < minX) minX = p.x;
+            if(p.x > maxX) maxX = p.x;
+            if(p.y < minY) minY = p.y;
+            if(p.y > maxY) maxY = p.y;
         }
-        optimized.push(points[points.length - 1]);
-        return optimized;
-    },
 
-    orthogonalizePolyline: function(points, tolerance) {
-        for (let i = 0; i < points.length - 1; i++) {
-            const p1 = points[i];
-            const p2 = points[i+1];
-            if (Math.abs(p1.y - p2.y) <= tolerance) {
-                const avgY = (p1.y + p2.y) / 2;
-                p1.y = p2.y = avgY;
-            } else if (Math.abs(p1.x - p2.x) <= tolerance) {
-                const avgX = (p1.x + p2.x) / 2;
-                p1.x = p2.x = avgX;
-            }
-        }
-        return points;
+        this.boundingBoxes.push({minX, maxX, minY, maxY});
     },
 
     addAsVectorLines: function(points) {
@@ -374,6 +315,7 @@ const GraphicsManager = {
         }
 
         if (this.currentStage === 5) {
+            // Рисуване на контурите
             this.ctx.strokeStyle = "#2d3d4c";
             this.ctx.lineWidth = 1;
             this.lines.forEach(l => {
@@ -383,6 +325,16 @@ const GraphicsManager = {
                 this.ctx.stroke();
             });
 
+            // Рисуване на Bounding Boxes (Оранжеви пунктири)
+            this.ctx.strokeStyle = "#ff9900";
+            this.ctx.lineWidth = 1.5;
+            this.ctx.setLineDash([5, 5]);
+            this.boundingBoxes.forEach(box => {
+                this.ctx.strokeRect(box.minX, box.minY, box.maxX - box.minX, box.maxY - box.minY);
+            });
+            this.ctx.setLineDash([]); // Възстановяване на плътната линия
+
+            // Рисуване на възлите
             this.ctx.fillStyle = "#ff4444";
             this.points.forEach(p => {
                 this.ctx.beginPath();
