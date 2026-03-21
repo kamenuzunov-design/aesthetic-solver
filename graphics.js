@@ -1,6 +1,6 @@
 /**
  * Aesthetic Solver - Графичен модул (graphics.js)
- * 6-етапно векторизиране с послойна скелетизация (бяло, светло сиво, тъмно сиво, черно)
+ * 6-етапно векторизиране с послойна скелетизация (бяло, сиво, черно)
  */
 
 const GraphicsManager = {
@@ -56,7 +56,7 @@ const GraphicsManager = {
         this.renderStage();
     },
 
-    // 2. Сиво по схема: 0-10%, 10-50%, 50-90%, 90-100%
+    // 2. Сиво по схема: 0-15% (бяло), 15-85% (сиво), 85-100% (черно)
     applyCustomQuantize: function() {
         if (!this.stageData) this.applyGrayscale();
         const data = this.stageData.data;
@@ -65,12 +65,10 @@ const GraphicsManager = {
             const p = (255 - v) / 255; 
             
             let val;
-            if (p <= 0.10) {
+            if (p <= 0.15) {
                 val = 255; // Бяло
-            } else if (p <= 0.50) {
-                val = 178; // Светло сиво (~30% черно)
-            } else if (p <= 0.90) {
-                val = 77;  // Тъмно сиво (~70% черно)
+            } else if (p <= 0.85) {
+                val = 128; // Сиво (50%)
             } else {
                 val = 0;   // Черно
             }
@@ -421,5 +419,9 @@ const GraphicsManager = {
         }
     }
 };
+
+function setTool(tool) { GraphicsManager.currentTool = tool; }
+function exportSVG() {}
+function applyRelation(type) {}
 
 window.addEventListener('load', () => GraphicsManager.init());
