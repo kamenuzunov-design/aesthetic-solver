@@ -112,13 +112,17 @@
 			<div class="geo-toolbar">
 				<!-- Група: Файл -->
 				<label for="imgUpload" class="geo-toolbar-btn" title="Качи изображение">
-					<span class="material-symbols-outlined">upload_file</span>
+					<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+						<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+					</svg>
 				</label>
 				<input type="file" id="imgUpload" accept="image/*" style="display: none;">
 
 				<!-- Прозрачност -->
 				<div class="geo-toolbar-opacity" title="Прозрачност на оригинала">
-					<span class="material-symbols-outlined" style="font-size: 18px;">contrast</span>
+					<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+						<circle cx="12" cy="12" r="10"/><path d="M12 2a10 10 0 0 1 0 20Z" fill="currentColor"/>
+					</svg>
 					<input type="range" id="imgOpacity" min="0" max="1" step="0.1" value="0.5">
 				</div>
 
@@ -126,33 +130,47 @@
 
 				<!-- Група: Инструменти -->
 				<button id="ui-geo-point" class="geo-toolbar-btn" onclick="setTool('point')" title="Точка">
-					<span class="material-symbols-outlined">radio_button_checked</span>
+					<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+						<circle cx="12" cy="12" r="3" fill="currentColor"/><circle cx="12" cy="12" r="9"/>
+					</svg>
 				</button>
-				<button id="ui-geo-line" class="geo-toolbar-btn" onclick="setTool('line')" title="Линия" style="font-weight: bold; font-size: 20px;">
-					/
+				<button id="ui-geo-line" class="geo-toolbar-btn" onclick="setTool('line')" title="Линия">
+					<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round">
+						<line x1="19" y1="5" x2="5" y2="19"/>
+					</svg>
 				</button>
 
 				<div class="geo-toolbar-sep"></div>
 
 				<!-- Група: Връзки -->
 				<button id="ui-rel-horizontal" class="geo-toolbar-btn" onclick="applyRelation('horizontal')" title="Хоризонтално">
-					<span class="material-symbols-outlined">horizontal_rule</span>
+					<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round">
+						<line x1="4" y1="12" x2="20" y2="12"/>
+					</svg>
 				</button>
-				<button id="ui-rel-vertical" class="geo-toolbar-btn" onclick="applyRelation('vertical')" title="Вертикално" style="font-weight: bold; font-size: 18px;">
-					|
+				<button id="ui-rel-vertical" class="geo-toolbar-btn" onclick="applyRelation('vertical')" title="Вертикално">
+					<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round">
+						<line x1="12" y1="4" x2="12" y2="20"/>
+					</svg>
 				</button>
 				<button id="ui-rel-equal" class="geo-toolbar-btn" onclick="applyRelation('equal')" title="Равни дължини">
-					<span class="material-symbols-outlined">drag_handle</span>
+					<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+						<line x1="5" y1="9" x2="19" y2="9"/><line x1="5" y1="15" x2="19" y2="15"/>
+					</svg>
 				</button>
 				<button id="ui-rel-fix" class="geo-toolbar-btn geo-toolbar-btn--danger" onclick="applyRelation('fix')" title="Фиксиране">
-					<span class="material-symbols-outlined">lock</span>
+					<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+						<rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+					</svg>
 				</button>
 
 				<div class="geo-toolbar-sep"></div>
 
 				<!-- Група: Експорт -->
 				<button id="ui-geo-export" class="geo-toolbar-btn geo-toolbar-btn--success" onclick="exportSVG()" title="Запис (SVG)">
-					<span class="material-symbols-outlined">download</span>
+					<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+						<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+					</svg>
 				</button>
 			</div>
 
