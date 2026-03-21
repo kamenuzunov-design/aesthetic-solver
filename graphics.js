@@ -153,7 +153,6 @@ const GraphicsManager = {
         
         this.lines = [];
         this.boundingBoxes = [];
-        const searchRadius = 3;  
         const simplifyTol = 2.0; 
 
         for (let y = 0; y < height; y++) {
@@ -161,7 +160,8 @@ const GraphicsManager = {
                 const idx = y * width + x;
                 
                 if (data[idx * 4] === 0 && !visited[idx]) {
-                    const path = this.tracePath(x, y, data, visited, width, height, searchRadius);
+                    // Moore-Neighbor tracing
+                    const path = this.traceMooreNeighbor(x, y, data, visited, width, height);
                     
                     if (path.length > 5) { 
                         let simplified = this.douglasPeucker(path, simplifyTol);
@@ -182,40 +182,92 @@ const GraphicsManager = {
         this.rebuildPoints();
     },
 
-    tracePath: function(startX, startY, data, visited, width, height, searchRadius) {
-        const path = [];
+    traceMooreNeighbor: function(startX, startY, data, visited, width, height) {
+        const contour = [];
+        const dx = [1, 1, 0, -1, -1, -1, 0, 1];
+        const dy = [0, 1, 1, 1, 0, -1, -1, -1];
+        
         let cx = startX;
         let cy = startY;
+        let entry_dir = 7; 
+        
+        const maxIter = width * height;
+        let iters = 0;
 
-        while (true) {
-            path.push({ x: cx, y: cy });
+        while (iters++ < maxIter) {
+            contour.push({ x: cx, y: cy });
             visited[cy * width + cx] = 1;
 
-            let foundNext = false;
-            for (let r = 1; r <= searchRadius; r++) {
-                for (let dy = -r; dy <= r; dy++) {
-                    for (let dx = -r; dx <= r; dx++) {
-                        if (dx === 0 && dy === 0) continue;
-                        
-                        const nx = cx + dx;
-                        const ny = cy + dy;
-                        
-                        if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
-                            const nIdx = ny * width + nx;
-                            if (data[nIdx * 4] === 0 && !visited[nIdx]) {
-                                cx = nx; cy = ny;
-                                foundNext = true;
-                                break;
-                            }
-                        }
+            let next_cx = -1, next_cy = -1;
+            let found = false;
+            
+            let scan_dir = (entry_dir + 6) % 8; 
+            
+            for (let i = 0; i < 8; i++) {
+                let d = (scan_dir + i) % 8;
+                let nx = cx + dx[d];
+                let ny = cy + dy[d];
+                
+                if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
+                    if (data[(ny * width + nx) * 4] === 0) {
+                        next_cx = nx;
+                        next_cy = ny;
+                        entry_dir = d;
+                        found = true;
+                        break;
                     }
-                    if (foundNext) break;
                 }
-                if (foundNext) break;
             }
-            if (!foundNext) break;
+            
+            if (!found) break; 
+            
+            cx = next_cx;
+            cy = next_cy;
+            
+            if (cx === startX && cy === startY) {
+                break;
+            }
         }
-        return path;
+        return contour;
+    },
+
+    sendToSolver: function() {
+        if (this.boundingBoxes.length === 0 && this.lines.length === 0) {
+            alert((window.currentLangData && window.currentLangData["ui-alert-no-vectors"]) || "Няма открити елементи. Моля, векторизирайте изображение първо.");
+            return;
+        }
+
+        let dimensions = new Set();
+        this.boundingBoxes.forEach(box => {
+            let bw = box.maxX - box.minX;
+            let bh = box.maxY - box.minY;
+            if (bw > 5) dimensions.add(Math.round(bw));
+            if (bh > 5) dimensions.add(Math.round(bh));
+        });
+
+        this.lines.forEach(l => {
+            let len = Math.hypot(l.p1.x - l.p2.x, l.p1.y - l.p2.y);
+            if (len > 15) dimensions.add(Math.round(len));
+        });
+
+        let numsArray = Array.from(dimensions).sort((a,b) => a - b);
+        
+        let inputElement = document.getElementById('inputChain');
+        if (inputElement) {
+            inputElement.value = numsArray.join(', ');
+        }
+
+        if (typeof navigateTo === 'function') {
+            navigateTo('numeric');
+        }
+
+        if (typeof runInverseAnalysis === 'function') {
+            if (numsArray.length < 5) {
+                alert((window.currentLangData && window.currentLangData["ui-alert-min"]) || "Не са открити достатъчно размери (минимум 5), но данните са прехвърлени.");
+            } else {
+                runInverseAnalysis();
+            }
+        }
     },
 
     douglasPeucker: function(points, tolerance) {
