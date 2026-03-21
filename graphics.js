@@ -1,6 +1,6 @@
 /**
  * Aesthetic Solver - Графичен модул (graphics.js)
- * 6-етапно векторизиране с послойна скелетизация (стъпки през 25%)
+ * 6-етапно векторизиране с послойна скелетизация (бяло, светло сиво, тъмно сиво, черно)
  */
 
 const GraphicsManager = {
@@ -38,7 +38,7 @@ const GraphicsManager = {
         switch(this.currentStage) {
             case 0: this.render(); break;
             case 1: this.applyGrayscale(); break;
-            case 2: this.applyQuantize25(); break;
+            case 2: this.applyCustomQuantize(); break;
             case 3: this.applyNoiseReduction(); break;
             case 4: this.applyLayeredThinning(); break;
             case 5: this.runTracing(); break;
@@ -56,24 +56,23 @@ const GraphicsManager = {
         this.renderStage();
     },
 
-    // 2. Сиво през 25% (0-25% Бяло, 75-100% Черно)
-    applyQuantize25: function() {
+    // 2. Сиво по схема: 0-10%, 10-50%, 50-90%, 90-100%
+    applyCustomQuantize: function() {
         if (!this.stageData) this.applyGrayscale();
         const data = this.stageData.data;
         for (let i = 0; i < data.length; i += 4) {
             const v = data[i];
-            const p = (255 - v) / 255; // Процент сиво (0.0 = бяло, 1.0 = черно)
+            const p = (255 - v) / 255; 
             
             let val;
-            if (p <= 0.25) {
+            if (p <= 0.10) {
                 val = 255; // Бяло
-            } else if (p >= 0.75) {
-                val = 0;   // Черно
+            } else if (p <= 0.50) {
+                val = 178; // Светло сиво (~30% черно)
+            } else if (p <= 0.90) {
+                val = 77;  // Тъмно сиво (~70% черно)
             } else {
-                // Изчисляване на средната стойност за съответната четвъртина (0.375 или 0.625)
-                const bin = Math.floor(p / 0.25); 
-                const midP = bin * 0.25 + 0.125; 
-                val = Math.round(255 * (1 - midP));
+                val = 0;   // Черно
             }
             data[i] = data[i+1] = data[i+2] = val;
         }
@@ -81,7 +80,7 @@ const GraphicsManager = {
     },
 
     applyNoiseReduction: function() {
-        if (!this.stageData) this.applyQuantize25();
+        if (!this.stageData) this.applyCustomQuantize();
         const width = this.canvas.width;
         const height = this.canvas.height;
         const data = this.stageData.data;
@@ -106,7 +105,6 @@ const GraphicsManager = {
         this.renderStage();
     },
 
-    // 4. Послойна скелетизация (Директно наслагване)
     applyLayeredThinning: function() {
         if (!this.stageData) this.applyNoiseReduction();
         const width = this.canvas.width;
@@ -145,7 +143,6 @@ const GraphicsManager = {
                 }
             }
 
-            // Обединяване директно в мастър скелета
             for (let i = 0; i < thinned.length; i++) {
                 if (thinned[i] === 1) {
                     masterSkeleton[i] = 1;
@@ -163,7 +160,6 @@ const GraphicsManager = {
         this.renderStage();
     },
 
-    // 5. Векторизиране
     runTracing: function() {
         this.executeTracingAlgorithm(); 
         this.render(); 
