@@ -1,6 +1,6 @@
 /**
  * Aesthetic Solver - Графичен модул (graphics.js)
- * 6-етапно векторизиране с контури и Bounding Box (Описан правоъгълник)
+ * Векторизиране чрез контури (Potrace методика) и Bounding Boxes
  */
 
 const GraphicsManager = {
@@ -14,7 +14,7 @@ const GraphicsManager = {
     
     points: [], 
     lines: [],  
-    boundingBoxes: [], // Масив за правоъгълниците
+    boundingBoxes: [],
 
     init: function() {
         this.canvas = document.getElementById('mainCanvas');
@@ -41,8 +41,8 @@ const GraphicsManager = {
             case 1: this.applyGrayscale(); break;
             case 2: this.applyCustomQuantize(); break;
             case 3: this.applyNoiseReduction(); break;
-            case 4: this.applyOutlineExtraction(); break; // НОВО: Контури
-            case 5: this.runTracing(); break;             // НОВО: Полигони и Bounding Box
+            case 4: this.applyOutlineExtraction(); break; // Контури вместо скелетизация
+            case 5: this.runTracing(); break;             // Полигони и Bounding Boxes
         }
     },
 
@@ -68,7 +68,7 @@ const GraphicsManager = {
             if (p <= 0.15) {
                 val = 255; // Бяло
             } else if (p <= 0.85) {
-                val = 128; // Сиво (50%)
+                val = 128; // Сиво
             } else {
                 val = 0;   // Черно
             }
@@ -93,17 +93,17 @@ const GraphicsManager = {
                     }
                 }
                 vals.sort((a, b) => a - b);
-                result[(y * width + x) * 4]     = vals[4];
-                result[(y * width + x) * 4 + 1] = vals[4];
-                result[(y * width + x) * 4 + 2] = vals[4];
-                result[(y * width + x) * 4 + 3] = 255;
+                let median = vals[4];
+                
+                const idx = (y * width + x) * 4;
+                result[idx] = result[idx+1] = result[idx+2] = median;
             }
         }
         this.stageData.data.set(result);
         this.renderStage();
     },
 
-    // НОВО: Извличане на контури (Edge Detection) вместо скелетизация
+    // 4. Извличане на контури (Ръбове)
     applyOutlineExtraction: function() {
         if (!this.stageData) this.applyNoiseReduction();
         const width = this.canvas.width;
@@ -111,7 +111,6 @@ const GraphicsManager = {
         const data = this.stageData.data;
         
         const binary = new Uint8Array(width * height);
-        // Обект е всичко, което не е чисто бяло
         for (let i = 0; i < data.length; i += 4) {
             binary[i / 4] = data[i] < 250 ? 1 : 0; 
         }
@@ -121,7 +120,6 @@ const GraphicsManager = {
             for (let x = 1; x < width - 1; x++) {
                 const idx = y * width + x;
                 if (binary[idx] === 1) {
-                    // Ако има поне един бял съсед, значи е ръб
                     if (binary[idx - 1] === 0 || binary[idx + 1] === 0 ||
                         binary[idx - width] === 0 || binary[idx + width] === 0) {
                         edgeMask[idx] = 1;
@@ -140,7 +138,7 @@ const GraphicsManager = {
         this.renderStage();
     },
 
-    // НОВО: Генериране на полигони и Bounding Boxes
+    // 5. Проследяване на полигони и Bounding Boxes
     runTracing: function() {
         this.executeTracingAlgorithm(); 
         this.render(); 
@@ -165,13 +163,13 @@ const GraphicsManager = {
                 if (data[idx * 4] === 0 && !visited[idx]) {
                     const path = this.tracePath(x, y, data, visited, width, height, searchRadius);
                     
-                    if (path.length > 10) { // Искаме само достатъчно големи контури
+                    if (path.length > 5) { 
                         let simplified = this.douglasPeucker(path, simplifyTol);
                         
-                        // Затваряне на полигона, ако краищата са близо
+                        // Затваряне на полигона
                         const first = simplified[0];
                         const last = simplified[simplified.length - 1];
-                        if (Math.hypot(first.x - last.x, first.y - last.y) < 15) {
+                        if (Math.hypot(first.x - last.x, first.y - last.y) < 20) {
                             simplified.push({...first}); 
                         }
 
@@ -315,7 +313,6 @@ const GraphicsManager = {
         }
 
         if (this.currentStage === 5) {
-            // Рисуване на контурите
             this.ctx.strokeStyle = "#2d3d4c";
             this.ctx.lineWidth = 1;
             this.lines.forEach(l => {
@@ -325,16 +322,15 @@ const GraphicsManager = {
                 this.ctx.stroke();
             });
 
-            // Рисуване на Bounding Boxes (Оранжеви пунктири)
+            // Рисуване на Bounding Boxes (оранжеви пунктири)
             this.ctx.strokeStyle = "#ff9900";
             this.ctx.lineWidth = 1.5;
             this.ctx.setLineDash([5, 5]);
             this.boundingBoxes.forEach(box => {
                 this.ctx.strokeRect(box.minX, box.minY, box.maxX - box.minX, box.maxY - box.minY);
             });
-            this.ctx.setLineDash([]); // Възстановяване на плътната линия
+            this.ctx.setLineDash([]); 
 
-            // Рисуване на възлите
             this.ctx.fillStyle = "#ff4444";
             this.points.forEach(p => {
                 this.ctx.beginPath();
