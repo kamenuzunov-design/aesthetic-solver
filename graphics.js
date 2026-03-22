@@ -164,6 +164,72 @@ const GraphicsManager = {
         });
     },
 
+    applySymmetry: function() {
+        if (this.selectedPaths.length === 2) {
+            this.executeSymmetry(this.selectedPaths[0], this.selectedPaths[1]);
+        } else if (this.selectedPaths.length === 1) {
+            if (typeof setTool === 'function') setTool('mirror');
+            else this.currentTool = 'mirror'; // fallback
+        } else {
+            alert("Моля, селектирайте 1 или 2 полилинии чрез инструмента 'Селекция' първо.");
+        }
+    },
+    
+    getBBox: function(points) {
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        points.forEach(p => {
+            if (p.x < minX) minX = p.x;
+            if (p.y < minY) minY = p.y;
+            if (p.x > maxX) maxX = p.x;
+            if (p.y > maxY) maxY = p.y;
+        });
+        return { minX, minY, maxX, maxY };
+    },
+
+    executeSymmetry: function(pathAIdx, pathBIdx) {
+        this.saveState();
+        
+        const pathA = this.paths[pathAIdx];
+        const pathB = this.paths[pathBIdx];
+        if (!pathA || !pathB) return;
+        
+        const bboxA = this.getBBox(pathA);
+        const bboxB = this.getBBox(pathB);
+        
+        const cxA = (bboxA.minX + bboxA.maxX) / 2;
+        const cyA = (bboxA.minY + bboxA.maxY) / 2;
+        const cxB = (bboxB.minX + bboxB.maxX) / 2;
+        const cyB = (bboxB.minY + bboxB.maxY) / 2;
+        
+        const midX = (cxA + cxB) / 2;
+        const midY = (cyA + cyB) / 2;
+        
+        const isHorizontal = Math.abs(cxA - cxB) > Math.abs(cyA - cyB);
+        
+        // Създаваме огледално копие на B
+        const mirroredB = pathB.map(p => {
+            if (isHorizontal) {
+                // Отражение по вертикалната ос x = midX (хоризонтално разположение)
+                return { x: 2 * midX - p.x, y: p.y };
+            } else {
+                // Отражение по хоризонталната ос y = midY (вертикално разположение)
+                return { x: p.x, y: 2 * midY - p.y };
+            }
+        });
+        
+        // Реверсираме реда на точките, за да запазим правилния order на полигона
+        mirroredB.reverse();
+        
+        // Заменяме A с mirrored B
+        this.paths[pathAIdx] = mirroredB;
+        
+        if (typeof setTool === 'function') setTool('select');
+        else this.currentTool = 'select'; // fallback
+        
+        this.selectedPaths = [pathAIdx, pathBIdx];
+        this.redraw();
+    },
+
     renderSvg: function() {
         if (!this.paths || this.paths.length === 0) return;
         this.ctx.save();
@@ -405,6 +471,15 @@ const GraphicsManager = {
         // Mouse Pan & Selection & Node Edit
         this.canvas.addEventListener('mousedown', (e) => {
             const hit = this.getHitInfo(e.clientX, e.clientY);
+            
+            if (this.currentTool === 'mirror') {
+                if (hit && this.selectedPaths.length > 0) {
+                    if (hit.pathIdx !== this.selectedPaths[0]) {
+                        this.executeSymmetry(this.selectedPaths[0], hit.pathIdx);
+                    }
+                }
+                return;
+            }
             
             if (this.currentTool === 'select' || this.currentTool === 'node-edit' || this.currentTool === 'segment-edit') {
                 const ctrlKey = e.ctrlKey || e.metaKey;

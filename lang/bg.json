@@ -58,6 +58,7 @@
   "ui-geo-select": "Селекция",
   "ui-geo-segment-edit": "Редактиране на сегменти",
   "ui-geo-node-edit": "Редактиране на възли",
+  "ui-geo-mirror": "Симетрия",
   "ui-geo-relations": "Връзки",
   "ui-rel-horizontal": "Хоризонтално",
   "ui-rel-vertical": "Вертикално",

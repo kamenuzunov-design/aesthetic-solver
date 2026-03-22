@@ -56,6 +56,7 @@
   "ui-geo-select": "Select",
   "ui-geo-segment-edit": "Edit Segments",
   "ui-geo-node-edit": "Node Edit",
+  "ui-geo-mirror": "Symmetry",
   "ui-geo-relations": "Relations",
   "ui-rel-horizontal": "Horizontal",
   "ui-rel-vertical": "Vertical",
