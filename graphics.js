@@ -25,7 +25,14 @@ const GraphicsManager = {
     
     saveState: function() {
         if (!this.paths) return;
-        this.history.push(JSON.parse(JSON.stringify(this.paths)));
+        const currentPathsJson = JSON.stringify(this.paths);
+        if (this.history.length > 0) {
+            const lastPathsJson = JSON.stringify(this.history[this.history.length - 1]);
+            if (currentPathsJson === lastPathsJson) {
+                return; // Няма промяна във векторите
+            }
+        }
+        this.history.push(JSON.parse(currentPathsJson));
         if (this.history.length > 50) this.history.shift();
     },
     
@@ -248,8 +255,11 @@ const GraphicsManager = {
         this.paths.forEach((points, pathIdx) => {
             const n = points.length;
             if (n < 2) return;
+            const isClosed = points[0].isClosed !== false;
             
             for (let i = 0; i < n; i++) {
+                if (!isClosed && i === 0) continue; // Пропускаме затварящия сегмент за отворени пътища
+                
                 this.ctx.beginPath();
                 const prevIdx = (i - 1 + n) % n;
                 this.ctx.moveTo(points[prevIdx].x, points[prevIdx].y);
@@ -431,6 +441,61 @@ const GraphicsManager = {
                         this.paths.splice(pIdx, 1);
                     });
                     this.selectedPaths = [];
+                    this.redraw();
+                } else if (this.currentTool === 'segment-edit' && this.activePathIdx !== -1 && this.selectedSegments.length > 0) {
+                    e.preventDefault();
+                    this.saveState();
+                    
+                    let points = this.paths[this.activePathIdx];
+                    let isClosed = points[0].isClosed !== false;
+                    
+                    let cutSegments = new Set(this.selectedSegments);
+                    if (!isClosed) cutSegments.add(0);
+                    
+                    if (isClosed && cutSegments.size === 1) {
+                         const idx = this.selectedSegments[0];
+                         let rotatedPoints = points.slice(idx).concat(points.slice(0, idx));
+                         rotatedPoints[0].isClosed = false;
+                         this.paths[this.activePathIdx] = rotatedPoints;
+                    } else {
+                         let newPaths = [];
+                         let currentPath = [];
+                         
+                         if (!cutSegments.has(0)) {
+                             let firstCut = 0;
+                             for (let i=0; i<points.length; i++) {
+                                 if (cutSegments.has(i)) { firstCut = i; break; }
+                             }
+                             points = points.slice(firstCut).concat(points.slice(0, firstCut));
+                             let shiftedCuts = new Set();
+                             cutSegments.forEach(idx => {
+                                 shiftedCuts.add((idx - firstCut + points.length) % points.length);
+                             });
+                             cutSegments = shiftedCuts;
+                         }
+
+                         for (let i = 0; i < points.length; i++) {
+                              if (cutSegments.has(i)) {
+                                  if (currentPath.length > 0) {
+                                      currentPath[0].isClosed = false;
+                                      newPaths.push(currentPath);
+                                  }
+                                  currentPath = [points[i]];
+                              } else {
+                                  currentPath.push(points[i]);
+                              }
+                         }
+                         if (currentPath.length > 0) {
+                             currentPath[0].isClosed = false;
+                             newPaths.push(currentPath);
+                         }
+                         
+                         // Ако пътят се разцепи изцяло до единични точки, те също ще останат
+                         // Изолираните точки (length === 1) не се рендват като линии, но съществуват като възли
+                         this.paths.splice(this.activePathIdx, 1, ...newPaths);
+                    }
+                    this.selectedSegments = [];
+                    this.activePathIdx = -1;
                     this.redraw();
                 }
             }
@@ -878,12 +943,15 @@ function exportSVG() {
     GraphicsManager.paths.forEach(points => {
         const n = points.length;
         if (n < 2) return;
+        const isClosed = points[0].isClosed !== false;
         
         svg += `M ${points[0].x.toFixed(2)} ${points[0].y.toFixed(2)} `;
         for (let i = 1; i < n; i++) {
             svg += `L ${points[i].x.toFixed(2)} ${points[i].y.toFixed(2)} `;
         }
-        svg += 'Z ';
+        if (isClosed) {
+            svg += 'Z ';
+        }
     });
     
     // Fill "evenodd" follows Potrace logic for nested loops, but using fill="none" matches the structural canvas wireframe view exactly
