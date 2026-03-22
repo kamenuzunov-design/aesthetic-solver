@@ -159,6 +159,12 @@ table {
     color: #a5d6a7;
 }
 
+.geo-toolbar-btn.active {
+    background: rgba(144, 202, 249, 0.3);
+    color: #90caf9;
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.3);
+}
+
 /* Вертикален разделител между групите */
 .geo-toolbar-sep {
     width: 1px;

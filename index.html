@@ -135,9 +135,14 @@
 				<div class="geo-toolbar-sep"></div>
 
 				<!-- Група: Инструменти -->
-				<button id="ui-geo-select" class="geo-toolbar-btn" onclick="setTool('select')" title="Избор">
+				<button id="ui-geo-select" class="geo-toolbar-btn" onclick="setTool('select')" title="Селекция">
 					<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
 						<path d="M3 3l7.07 16.97 2.51-7.39 7.39-2.51L3 3z"/><path d="M13 13l6 6"/>
+					</svg>
+				</button>
+				<button id="ui-geo-segment-edit" class="geo-toolbar-btn" onclick="setTool('segment-edit')" title="Редактиране на сегменти">
+					<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round">
+						<line x1="19" y1="5" x2="5" y2="19"/>
 					</svg>
 				</button>
 				<button id="ui-geo-node-edit" class="geo-toolbar-btn" onclick="setTool('node-edit')" title="Редактиране на възли">
@@ -146,17 +151,8 @@
 						<circle cx="12" cy="12" r="9" stroke-dasharray="2 2"/>
 					</svg>
 				</button>
-
-				<button id="ui-geo-point" class="geo-toolbar-btn" onclick="setTool('point')" title="Точка">
-					<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-						<circle cx="12" cy="12" r="3" fill="currentColor"/><circle cx="12" cy="12" r="9"/>
-					</svg>
-				</button>
-				<button id="ui-geo-line" class="geo-toolbar-btn" onclick="setTool('line')" title="Линия">
-					<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round">
-						<line x1="19" y1="5" x2="5" y2="19"/>
-					</svg>
-				</button>
+                
+				<div class="geo-toolbar-sep"></div>
 
 				<div class="geo-toolbar-sep"></div>
 
