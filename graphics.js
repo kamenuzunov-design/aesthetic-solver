@@ -60,6 +60,9 @@ const GraphicsManager = {
     selectedNodes: [],   
     selectedSegments: [], 
     dragTarget: null,      
+    drawStartPt: null,      // За Rectangle/Round-Rect
+    currentPoints: [],      // За Line tool
+
 
     // Мащабиране 
     imgScale: 1,
@@ -238,13 +241,63 @@ const GraphicsManager = {
     },
 
     renderSvg: function() {
-        if (!this.paths || this.paths.length === 0) return;
         this.ctx.save();
         this.applyTransform();
         // Връщаме прозрачността на 1.0 за векторите
         this.ctx.globalAlpha = 1.0;
         this.ctx.lineWidth = 1 / (this.imgScale * this.userZoom);
-        this.drawPaths();
+        
+        if (this.paths && this.paths.length > 0) {
+            this.drawPaths();
+        }
+        
+        // Рисуване на текущата линия в процес на чертане
+        if (this.currentTool === 'line' && this.currentPoints.length > 0) {
+            this.ctx.beginPath();
+            this.ctx.moveTo(this.currentPoints[0].x, this.currentPoints[0].y);
+            for (let i = 1; i < this.currentPoints.length; i++) {
+                this.ctx.lineTo(this.currentPoints[i].x, this.currentPoints[i].y);
+            }
+            // Показваме следващата точка към курсора
+            if (this.lastMouseX !== undefined) {
+                const rect = this.canvas.getBoundingClientRect();
+                const s = this.imgScale * this.userZoom;
+                const imgW = (this.bgImage.complete && this.bgImage.width > 0) ? this.bgImage.width : 100;
+                const imgH = (this.bgImage.complete && this.bgImage.height > 0) ? this.bgImage.height : 100;
+                const offsetX = (this.canvas.width - imgW * s) / 2 + this.panX;
+                const offsetY = (this.canvas.height - imgH * s) / 2 + this.panY;
+                const curX = (this.lastMouseX - rect.left - offsetX) / s;
+                const curY = (this.lastMouseY - rect.top - offsetY) / s;
+                this.ctx.lineTo(curX, curY);
+            }
+            this.ctx.strokeStyle = "#28a745"; // Green preview
+            this.ctx.stroke();
+        }
+
+        // Рисуване на преглед за правоъгълник
+        if ((this.currentTool === 'rect' || this.currentTool === 'round-rect') && this.drawStartPt && this.lastMouseX !== undefined) {
+            const rect = this.canvas.getBoundingClientRect();
+            const s = this.imgScale * this.userZoom;
+            const imgW = (this.bgImage.complete && this.bgImage.width > 0) ? this.bgImage.width : 100;
+            const imgH = (this.bgImage.complete && this.bgImage.height > 0) ? this.bgImage.height : 100;
+            const offsetX = (this.canvas.width - imgW * s) / 2 + this.panX;
+            const offsetY = (this.canvas.height - imgH * s) / 2 + this.panY;
+            const curX = (this.lastMouseX - rect.left - offsetX) / s;
+            const curY = (this.lastMouseY - rect.top - offsetY) / s;
+
+            this.ctx.beginPath();
+            if (this.currentTool === 'rect') {
+                this.ctx.rect(this.drawStartPt.x, this.drawStartPt.y, curX - this.drawStartPt.x, curY - this.drawStartPt.y);
+            } else {
+                const pts = this.createRoundRectPoints(this.drawStartPt.x, this.drawStartPt.y, curX, curY);
+                this.ctx.moveTo(pts[0].x, pts[0].y);
+                for (let i = 1; i < pts.length; i++) this.ctx.lineTo(pts[i].x, pts[i].y);
+                this.ctx.closePath();
+            }
+            this.ctx.strokeStyle = "#28a745"; // Green preview
+            this.ctx.stroke();
+        }
+
         if ((this.currentTool === 'node-edit' || this.currentTool === 'segment-edit') && this.activePathIdx !== -1) {
             this.renderNodes();
         }
@@ -412,13 +465,29 @@ const GraphicsManager = {
             if (e.key === 'z' && (e.ctrlKey || e.metaKey)) {
                 e.preventDefault();
                 this.undo();
-            } else if (e.key === 'Escape') {
-                this.selectedPaths = [];
+            } else if (e.key === 'Escape' || e.key === 'Enter') {
+                if (this.currentPoints.length > 1) {
+                    this.saveState();
+                    this.paths.push([...this.currentPoints]);
+                }
+                this.currentPoints = [];
+                this.drawStartPt = null;
+
+                // Връщаме се към активно селектирания инструмент от първата група
+                const selectionGroup = ['select', 'segment-edit', 'node-edit'];
+                const activeSelection = selectionGroup.find(t => document.getElementById('ui-geo-' + t)?.classList.contains('active'));
+                if (activeSelection) {
+                    this.currentTool = activeSelection;
+                } else {
+                    this.selectedPaths = [];
+                }
+                
                 this.activePathIdx = -1;
                 this.selectedNodes = [];
                 this.selectedSegments = [];
                 this.isBoxSelecting = false;
                 this.redraw();
+
             } else if (e.key === 'Delete' || e.key === 'Backspace') {
                 if (this.currentTool === 'node-edit' && this.activePathIdx !== -1 && this.selectedNodes.length > 0) {
                     e.preventDefault();
@@ -536,6 +605,18 @@ const GraphicsManager = {
         // Mouse Pan & Selection & Node Edit
         this.canvas.addEventListener('mousedown', (e) => {
             const hit = this.getHitInfo(e.clientX, e.clientY);
+            
+            // 1. Pan с десен или среден бутон
+            if (e.button === 1 || e.button === 2) {
+                this.isDragging = true;
+                this.lastMouseX = e.clientX;
+                this.lastMouseY = e.clientY;
+                if (e.button === 2) e.preventDefault(); // За десен бутон
+                return;
+            }
+
+            // Продължаваме само за ляв бутон (button 0)
+            if (e.button !== 0) return;
             
             if (this.currentTool === 'mirror') {
                 if (hit && this.selectedPaths.length > 0) {
@@ -657,10 +738,38 @@ const GraphicsManager = {
                     }
                 }
                 this.redraw();
+            } else if (this.currentTool === 'line') {
+                const rect = this.canvas.getBoundingClientRect();
+                const s = this.imgScale * this.userZoom;
+                const imgW = (this.bgImage.complete && this.bgImage.width > 0) ? this.bgImage.width : 100;
+                const imgH = (this.bgImage.complete && this.bgImage.height > 0) ? this.bgImage.height : 100;
+                const offsetX = (this.canvas.width - imgW * s) / 2 + this.panX;
+                const offsetY = (this.canvas.height - imgH * s) / 2 + this.panY;
+                const potraceX = (e.clientX - rect.left - offsetX) / s;
+                const potraceY = (e.clientY - rect.top - offsetY) / s;
+
+                if (this.currentPoints.length === 0) {
+                    this.saveState();
+                    this.currentPoints.push({ x: potraceX, y: potraceY, isClosed: false });
+                } else {
+                    this.currentPoints.push({ x: potraceX, y: potraceY });
+                }
+                this.redraw();
+            } else if (this.currentTool === 'rect' || this.currentTool === 'round-rect') {
+                const rect = this.canvas.getBoundingClientRect();
+                const s = this.imgScale * this.userZoom;
+                const imgW = (this.bgImage.complete && this.bgImage.width > 0) ? this.bgImage.width : 100;
+                const imgH = (this.bgImage.complete && this.bgImage.height > 0) ? this.bgImage.height : 100;
+                const offsetX = (this.canvas.width - imgW * s) / 2 + this.panX;
+                const offsetY = (this.canvas.height - imgH * s) / 2 + this.panY;
+                this.drawStartPt = {
+                    x: (e.clientX - rect.left - offsetX) / s,
+                    y: (e.clientY - rect.top - offsetY) / s
+                };
             }
 
-            // Продължаваме с Pan логиката само ако не влачим възел/сегмент и не сме в box select
-            if (!this.dragTarget && !this.isBoxSelecting) {
+            // Продължаваме с Pan логиката само ако не влачим възел/сегмент, не сме в box select и не чертаем
+            if (!this.dragTarget && !this.isBoxSelecting && !['line', 'rect', 'round-rect'].includes(this.currentTool)) {
                 this.isDragging = true;
                 this.lastMouseX = e.clientX;
                 this.lastMouseY = e.clientY;
@@ -668,11 +777,34 @@ const GraphicsManager = {
         });
 
         window.addEventListener('mousemove', (e) => {
+            const currentX = e.clientX;
+            const currentY = e.clientY;
+
             if (this.isBoxSelecting) {
-                this.boxSelectEnd = { x: e.clientX, y: e.clientY };
+                this.boxSelectEnd = { x: currentX, y: currentY };
                 this.redraw();
                 return;
             }
+
+            if (this.isDragging) {
+                const dx = currentX - this.lastMouseX;
+                const dy = currentY - this.lastMouseY;
+                this.panX += dx;
+                this.panY += dy;
+                this.lastMouseX = currentX;
+                this.lastMouseY = currentY;
+                this.redraw();
+                return;
+            }
+
+            this.lastMouseX = currentX;
+            this.lastMouseY = currentY;
+
+            if (this.currentTool === 'line' || this.currentTool === 'rect' || this.currentTool === 'round-rect') {
+                this.redraw(); // За преглед при движение (preview)
+                return;
+            }
+
             if (this.dragTarget) {
                 const rect = this.canvas.getBoundingClientRect();
                 const screenX = e.clientX - rect.left;
@@ -729,6 +861,11 @@ const GraphicsManager = {
                 this.lastDragY = potraceY;
                 
                 this.redraw();
+                return;
+            }
+
+            if (this.currentTool === 'line' || this.currentTool === 'rect' || this.currentTool === 'round-rect') {
+                this.redraw(); // За преглед при движение (preview)
                 return;
             }
 
@@ -858,6 +995,158 @@ const GraphicsManager = {
             }
 
             this.isDragging = false;
+            
+            // Завършване на чертане (Rect / Round-Rect)
+            if ((this.currentTool === 'rect' || this.currentTool === 'round-rect') && this.drawStartPt) {
+                const rect = this.canvas.getBoundingClientRect();
+                const s = this.imgScale * this.userZoom;
+                const imgW = (this.bgImage.complete && this.bgImage.width > 0) ? this.bgImage.width : 100;
+                const imgH = (this.bgImage.complete && this.bgImage.height > 0) ? this.bgImage.height : 100;
+                const offsetX = (this.canvas.width - imgW * s) / 2 + this.panX;
+                const offsetY = (this.canvas.height - imgH * s) / 2 + this.panY;
+                const endPt = {
+                    x: (e.clientX - rect.left - offsetX) / s,
+                    y: (e.clientY - rect.top - offsetY) / s
+                };
+
+                if (Math.hypot(endPt.x - this.drawStartPt.x, endPt.y - this.drawStartPt.y) > 2) {
+                    this.saveState();
+                    if (this.currentTool === 'rect') {
+                        this.paths.push([
+                            { x: this.drawStartPt.x, y: this.drawStartPt.y },
+                            { x: endPt.x, y: this.drawStartPt.y },
+                            { x: endPt.x, y: endPt.y },
+                            { x: this.drawStartPt.x, y: endPt.y }
+                        ]);
+                    } else {
+                        this.paths.push(this.createRoundRectPoints(this.drawStartPt.x, this.drawStartPt.y, endPt.x, endPt.y));
+                    }
+                }
+                this.drawStartPt = null;
+                
+                // Връщаме се към активаната селекция, ако е била натисната
+                const selectionGroup = ['select', 'segment-edit', 'node-edit'];
+                const activeSelection = selectionGroup.find(t => document.getElementById('ui-geo-' + t)?.classList.contains('active'));
+                if (activeSelection) this.currentTool = activeSelection;
+                
+                this.redraw();
+            }
+
+            // Проверка за сближаване на крайни точки (Line Tool)
+            if (this.currentTool === 'line' && this.currentPoints.length > 2) {
+                const lastIdx = this.currentPoints.length - 1;
+                const lastPt = this.currentPoints[lastIdx];
+                const s = this.imgScale * this.userZoom;
+                const SNAP_THRESHOLD_WORLD = 15 / s;
+
+                let foundOther = null;
+                for (let pIdx = 0; pIdx < this.paths.length; pIdx++) {
+                    const pts = this.paths[pIdx];
+                    const isOpen = pts[0].isClosed === false;
+                    if (!isOpen) continue;
+                    
+                    const endpoints = [0, pts.length - 1];
+                    for (const eIdx of endpoints) {
+                        const dist = Math.hypot(pts[eIdx].x - lastPt.x, pts[eIdx].y - lastPt.y);
+                        if (dist <= SNAP_THRESHOLD_WORLD) {
+                            foundOther = { pathIdx: pIdx, nodeIdx: eIdx };
+                            break;
+                        }
+                    }
+                    if (foundOther) break;
+                }
+                // Проверка и към собственото начало (closing the loop)
+                const distToStart = Math.hypot(this.currentPoints[0].x - lastPt.x, this.currentPoints[0].y - lastPt.y);
+                if (!foundOther && distToStart <= SNAP_THRESHOLD_WORLD) {
+                    foundOther = { pathIdx: -1, nodeIdx: 0 }; // Special marker for self-closing
+                }
+
+                if (foundOther) {
+                    this.showConnectDialog(() => {
+                        this.saveState();
+                        if (foundOther.pathIdx === -1) {
+                            // Self closing
+                            delete this.currentPoints[0].isClosed;
+                            this.paths.push(this.currentPoints);
+                        } else {
+                            // Join with other
+                            const pathB = this.paths[foundOther.pathIdx];
+                            let a = [...this.currentPoints];
+                            let b = [...pathB];
+                            if (foundOther.nodeIdx === b.length - 1) b.reverse();
+                            const joined = a.concat(b.slice(1));
+                            joined[0].isClosed = false;
+                            this.paths[foundOther.pathIdx] = joined;
+                        }
+                        this.currentPoints = [];
+                        
+                        // Връщаме се към активаната селекция
+                        const selectionGroup = ['select', 'segment-edit', 'node-edit'];
+                        const activeSelection = selectionGroup.find(t => document.getElementById('ui-geo-' + t)?.classList.contains('active'));
+                        if (activeSelection) this.currentTool = activeSelection;
+
+                        this.redraw();
+                    });
+                }
+            }
+
+            // Проверка за сближаване на крайни точки след влачене (Node Edit)
+            if (this.dragTarget && this.dragTarget.type === 'node' &&
+                this.currentTool === 'node-edit' && this.activePathIdx !== -1) {
+                
+                const activePoints = this.paths[this.activePathIdx];
+                const draggedNodeIdx = this.dragTarget.nodeIdx;
+                const isOpen = activePoints[0].isClosed === false;
+                const isStartNode = draggedNodeIdx === 0;
+                const isEndNode = draggedNodeIdx === activePoints.length - 1;
+                const isDraggedEndpoint = isOpen && (isStartNode || isEndNode);
+                
+                if (isDraggedEndpoint) {
+                    const s = this.imgScale * this.userZoom;
+                    const SNAP_THRESHOLD_PX = 15;
+                    const SNAP_THRESHOLD_WORLD = SNAP_THRESHOLD_PX / s;
+                    
+                    const draggedPt = activePoints[draggedNodeIdx];
+                    let foundOther = null;
+                    
+                    for (let pIdx = 0; pIdx < this.paths.length; pIdx++) {
+                        const pts = this.paths[pIdx];
+                        if (!pts || pts.length < 1) continue;
+                        const otherIsOpen = (pIdx !== this.activePathIdx) ? pts[0].isClosed === false : true;
+                        if (!otherIsOpen) continue;
+                        
+                        const endpointIndices = [];
+                        if (pIdx === this.activePathIdx) {
+                            // Същия контур – проверяваме дали крайната точка е близо до отсрещния край на същия път
+                            if (draggedNodeIdx === 0 && pts.length > 1) endpointIndices.push(pts.length - 1);
+                            else if (draggedNodeIdx === pts.length - 1 && pts.length > 1) endpointIndices.push(0);
+                        } else {
+                            // Друг отворен контур
+                            endpointIndices.push(0, pts.length - 1);
+                        }
+                        
+                        for (const eIdx of endpointIndices) {
+                            const ep = pts[eIdx];
+                            const dist = Math.hypot(ep.x - draggedPt.x, ep.y - draggedPt.y);
+                            if (dist <= SNAP_THRESHOLD_WORLD) {
+                                foundOther = { pathIdx: pIdx, nodeIdx: eIdx };
+                                break;
+                            }
+                        }
+                        if (foundOther) break;
+                    }
+                    
+                    if (foundOther) {
+                        this.showConnectDialog(() => {
+                            this.executeJoin(
+                                this.activePathIdx, draggedNodeIdx,
+                                foundOther.pathIdx, foundOther.nodeIdx
+                            );
+                        });
+                    }
+                }
+            }
+            
             this.dragTarget = null;
         });
 
@@ -917,17 +1206,161 @@ const GraphicsManager = {
         this.panX = 0;
         this.panY = 0;
         this.redraw();
+    },
+
+    showConnectDialog: function(onYes) {
+        const dialog = document.getElementById('ui-connect-dialog');
+        if (!dialog) { if (onYes) onYes(); return; }
+        dialog.style.display = 'flex';
+        
+        const btnYes = document.getElementById('ui-btn-yes');
+        const btnNo  = document.getElementById('ui-btn-no');
+        
+        const cleanup = () => { dialog.style.display = 'none'; btnYes.onclick = null; btnNo.onclick = null; };
+        btnYes.onclick = () => { cleanup(); if (onYes) onYes(); };
+        btnNo.onclick  = () => { cleanup(); this.redraw(); };
+    },
+
+    executeJoin: function(pathAIdx, nodeAIdx, pathBIdx, nodeBIdx) {
+        this.saveState();
+        
+        const pathA = this.paths[pathAIdx];
+        const pathB = this.paths[pathBIdx];
+        if (!pathA || !pathB) return;
+        
+        // Същия път – затваряме контура
+        if (pathAIdx === pathBIdx) {
+            delete pathA[0].isClosed; // изтриваме отворения признак – става затворен
+            this.selectedNodes = [];
+            this.redraw();
+            return;
+        }
+        
+        // Реаранжираме така, че nodeA да е краят (last) на A, а nodeB да е началото (0) на B
+        let a = [...pathA];
+        let b = [...pathB];
+        
+        // Ако влачената точка е началото (0) на A, объръщаме A
+        if (nodeAIdx === 0) a = a.reverse();
+        // Ако закачваната точка е краят (last) на B, объръщаме B
+        if (nodeBIdx === b.length - 1) b = b.reverse();
+        
+        // Свързваме: A (всички точки) + B (без първата, която е дубликат)
+        const joined = a.concat(b.slice(1));
+        // Понеже резултатът е отворен контур, маркираме isOpen
+        joined[0].isClosed = false;
+        
+        // Заменяме A със слютия масив и изтриваме B
+        this.paths[pathAIdx] = joined;
+        // Изтриваме B (from the end to not disturb A's index)
+        const bIdxToRemove = pathBIdx > pathAIdx ? pathBIdx : pathBIdx;
+        this.paths.splice(bIdxToRemove, 1);
+        
+        this.activePathIdx = pathAIdx < bIdxToRemove ? pathAIdx : Math.max(0, pathAIdx - 1);
+        this.selectedNodes = [];
+        this.redraw();
     }
 };
 
 function setTool(tool) {
     GraphicsManager.currentTool = tool;
     
-    // Премахваме active класа от всички инструменти и го слагаме на избрания
-    document.querySelectorAll('#sec-geometric .geo-toolbar-btn').forEach(btn => btn.classList.remove('active'));
+    // Дефинираме групи инструменти
+    const selectionGroup = ['select', 'segment-edit', 'node-edit'];
+    const geometryGroup = ['line', 'rect', 'round-rect', 'mirror'];
+    
+    if (selectionGroup.includes(tool)) {
+        selectionGroup.forEach(t => document.getElementById('ui-geo-' + t)?.classList.remove('active'));
+    } else if (geometryGroup.includes(tool)) {
+        geometryGroup.forEach(t => document.getElementById('ui-geo-' + t)?.classList.remove('active'));
+    }
+    
     const activeBtn = document.getElementById('ui-geo-' + tool);
     if (activeBtn) activeBtn.classList.add('active');
+
+    // Трансформация на селектирани обекти
+    if (GraphicsManager.selectedPaths.length > 0) {
+        let transformed = false;
+        if (tool === 'rect') {
+            GraphicsManager.executeTransformToRect();
+            transformed = true;
+        } else if (tool === 'round-rect') {
+            GraphicsManager.executeTransformToRoundRect();
+            transformed = true;
+        }
+        
+        if (transformed) {
+            // Връщаме се към последната селекция
+            const geometryGroup = ['line', 'rect', 'round-rect', 'mirror'];
+            geometryGroup.forEach(t => document.getElementById('ui-geo-' + t)?.classList.remove('active'));
+            
+            const selectionGroup = ['select', 'segment-edit', 'node-edit'];
+            const activeSelection = selectionGroup.find(t => document.getElementById('ui-geo-' + t)?.classList.contains('active'));
+            if (activeSelection) GraphicsManager.currentTool = activeSelection;
+        }
+    }
 }
+
+GraphicsManager.executeTransformToRect = function() {
+    this.saveState();
+    this.selectedPaths.forEach(pIdx => {
+        const points = this.paths[pIdx];
+        if (!points) return;
+        const bbox = this.getBBox(points);
+        this.paths[pIdx] = [
+            { x: bbox.minX, y: bbox.minY },
+            { x: bbox.maxX, y: bbox.minY },
+            { x: bbox.maxX, y: bbox.maxY },
+            { x: bbox.minX, y: bbox.maxY }
+        ];
+    });
+    this.redraw();
+};
+
+GraphicsManager.executeTransformToRoundRect = function() {
+    this.saveState();
+    this.selectedPaths.forEach(pIdx => {
+        const points = this.paths[pIdx];
+        if (!points) return;
+        const bbox = this.getBBox(points);
+        this.paths[pIdx] = this.createRoundRectPoints(bbox.minX, bbox.minY, bbox.maxX, bbox.maxY);
+    });
+    this.redraw();
+};
+
+GraphicsManager.createRoundRectPoints = function(x1, y1, x2, y2) {
+    const minX = Math.min(x1, x2);
+    const minY = Math.min(y1, y2);
+    const maxX = Math.max(x1, x2);
+    const maxY = Math.max(y1, y2);
+    const w = maxX - minX;
+    const h = maxY - minY;
+    const minSize = Math.min(w, h);
+    
+    let r = 5;
+    let steps = 2; // две равни линии (chamfer)
+    if (minSize < 15) {
+        r = 2;
+        steps = 1;
+    }
+
+    const pts = [];
+    // Горна дясна крива
+    if (steps === 2) {
+        pts.push({ x: maxX - r, y: minY }, { x: maxX, y: minY + r });
+        pts.push({ x: maxX, y: maxY - r }, { x: maxX - r, y: maxY });
+        pts.push({ x: minX + r, y: maxY }, { x: minX, y: maxY - r });
+        pts.push({ x: minX, y: minY + r }, { x: minX + r, y: minY });
+    } else {
+        pts.push({ x: maxX - r, y: minY }, { x: maxX, y: minY + r });
+        pts.push({ x: maxX, y: maxY - r }, { x: maxX - r, y: maxY });
+        pts.push({ x: minX + r, y: maxY }, { x: minX, y: maxY - r });
+        pts.push({ x: minX, y: minY + r }, { x: minX + r, y: minY });
+    }
+    // Затваряме го по подразбиране (undefined isClosed)
+    return pts;
+};
+
 function exportSVG() {
     if (!GraphicsManager.paths || GraphicsManager.paths.length === 0) {
         alert("Няма векторно изображение за запис.");
