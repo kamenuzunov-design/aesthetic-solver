@@ -66,7 +66,14 @@
   "ui-rel-horizontal": "Хоризонтално",
   "ui-rel-vertical": "Вертикално",
   "ui-rel-equal": "Равни",
-  "ui-rel-fix": "Фиксиране",
+  "ui-rel-parallel": "Успоредни",
+  "ui-rel-collinear": "Съосни",
+  "ui-align-top": "Подравняване отгоре",
+  "ui-align-middle": "Подравняване в средата (вертикално)",
+  "ui-align-bottom": "Подравняване отдолу",
+  "ui-align-left": "Подравняване отляво",
+  "ui-align-center": "Подравняване в центъра (хоризонтално)",
+  "ui-align-right": "Подравняване отдясно",
   "ui-geo-export": "Запис (SVG)",
   "ui-geo-zoom-reset": "Нулиране на мащаба"
 }

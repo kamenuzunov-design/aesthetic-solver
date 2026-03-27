@@ -25,20 +25,23 @@ const GraphicsManager = {
     
     saveState: function() {
         if (!this.paths) return;
-        const currentPathsJson = JSON.stringify(this.paths);
+        const state = { paths: this.paths, relations: this.relations };
+        const currentStateJson = JSON.stringify(state);
         if (this.history.length > 0) {
-            const lastPathsJson = JSON.stringify(this.history[this.history.length - 1]);
-            if (currentPathsJson === lastPathsJson) {
-                return; // Няма промяна във векторите
+            const lastStateJson = JSON.stringify(this.history[this.history.length - 1]);
+            if (currentStateJson === lastStateJson) {
+                return; // Няма промяна
             }
         }
-        this.history.push(JSON.parse(currentPathsJson));
+        this.history.push(JSON.parse(currentStateJson));
         if (this.history.length > 50) this.history.shift();
     },
     
     undo: function() {
         if (this.history.length > 0) {
-            this.paths = this.history.pop();
+            const state = this.history.pop();
+            this.paths = state.paths;
+            this.relations = state.relations || [];
             this.selectedPaths = [];
             this.activePathIdx = -1;
             this.selectedNodes = [];
@@ -62,6 +65,9 @@ const GraphicsManager = {
     dragTarget: null,      
     drawStartPt: null,      // За Rectangle/Round-Rect
     currentPoints: [],      // За Line tool
+    relations: [],          // { type, pathIdx, segIdx, targetPathIdx, targetSegIdx }
+    selectedRelation: null, 
+
 
 
     // Мащабиране 
@@ -300,6 +306,7 @@ const GraphicsManager = {
 
         if ((this.currentTool === 'node-edit' || this.currentTool === 'segment-edit') && this.activePathIdx !== -1) {
             this.renderNodes();
+            this.renderRelations();
         }
         this.ctx.restore();
     },
@@ -412,6 +419,27 @@ const GraphicsManager = {
             }
         }
         this.ctx.restore();
+
+        // 3. Проверка за връзки (Relations)
+        if (this.currentTool === 'segment-edit' && this.activePathIdx !== -1) {
+            const rels = this.getSegmentRelations(this.activePathIdx);
+            const size = 16 / (this.imgScale * this.userZoom);
+            for (const [segIdx, list] of Object.entries(rels)) {
+                const sIdx = parseInt(segIdx);
+                const pos = this.getSegmentMidpoint(this.activePathIdx, sIdx);
+                const gap = 4 / (this.imgScale * this.userZoom);
+                for (let i = 0; i < list.length; i++) {
+                    const rel = list[i];
+                    const rx = pos.x + (i * (size + gap));
+                    const ry = pos.y + 10 / (this.imgScale * this.userZoom);
+                    if (potraceX >= rx - size/2 && potraceX <= rx + size/2 &&
+                        potraceY >= ry - size/2 && potraceY <= ry + size/2) {
+                        return { type: 'relation', relation: rel };
+                    }
+                }
+            }
+        }
+
         return null;
     },
 
@@ -462,7 +490,7 @@ const GraphicsManager = {
         }
 
         document.addEventListener('keydown', (e) => {
-            if (e.key === 'z' && (e.ctrlKey || e.metaKey)) {
+            if ((e.code === 'KeyZ' || e.key.toLowerCase() === 'z' || e.key === 'я') && (e.ctrlKey || e.metaKey)) {
                 e.preventDefault();
                 this.undo();
             } else if (e.key === 'Escape' || e.key === 'Enter') {
@@ -508,6 +536,10 @@ const GraphicsManager = {
                     const sortedPaths = [...this.selectedPaths].sort((a,b) => b-a);
                     sortedPaths.forEach(pIdx => {
                         this.paths.splice(pIdx, 1);
+                        // Махаме и връзките за този път
+                        this.relations = this.relations.filter(r => r.pathIdx !== pIdx);
+                        // Шифтваме индексите на останалите връзки
+                        this.relations.forEach(r => { if (r.pathIdx > pIdx) r.pathIdx--; });
                     });
                     this.selectedPaths = [];
                     this.redraw();
@@ -563,8 +595,16 @@ const GraphicsManager = {
                          // Изолираните точки (length === 1) не се рендват като линии, но съществуват като възли
                          this.paths.splice(this.activePathIdx, 1, ...newPaths);
                     }
+                    // При промяна на структурата на пътя, в момента е най-сигурно да изчистим връзките за този път
+                    this.relations = this.relations.filter(r => r.pathIdx !== this.activePathIdx);
                     this.selectedSegments = [];
                     this.activePathIdx = -1;
+                    this.redraw();
+                } else if (this.selectedRelation) {
+                    e.preventDefault();
+                    this.saveState();
+                    this.relations = this.relations.filter(r => r !== this.selectedRelation);
+                    this.selectedRelation = null;
                     this.redraw();
                 }
             }
@@ -625,6 +665,16 @@ const GraphicsManager = {
                     }
                 }
                 return;
+            }
+            
+            if (hit && hit.type === 'relation') {
+                this.selectedRelation = hit.relation;
+                this.selectedSegments = [];
+                this.selectedNodes = [];
+                this.redraw();
+                return;
+            } else {
+                this.selectedRelation = null;
             }
             
             if (this.currentTool === 'select' || this.currentTool === 'node-edit' || this.currentTool === 'segment-edit') {
@@ -829,37 +879,58 @@ const GraphicsManager = {
                 const dx = potraceX - this.lastDragX;
                 const dy = potraceY - this.lastDragY;
                 
+                const points = (this.activePathIdx !== -1) ? this.paths[this.activePathIdx] : null;
+
                 if (this.currentTool === 'select') {
                     this.selectedPaths.forEach(pIdx => {
-                        const points = this.paths[pIdx];
-                        if (points) {
-                            points.forEach(pt => { pt.x += dx; pt.y += dy; });
+                        const pts = this.paths[pIdx];
+                        if (pts) {
+                            pts.forEach(pt => { pt.x += dx; pt.y += dy; });
                         }
                     });
-                } else if (this.currentTool === 'node-edit' && this.activePathIdx !== -1) {
-                    const points = this.paths[this.activePathIdx];
-                    if (points) {
-                        this.selectedNodes.forEach(idx => {
+                } else if (this.currentTool === 'node-edit' && points) {
+                    this.selectedNodes.forEach(idx => {
+                        points[idx].x += dx;
+                        points[idx].y += dy;
+                    });
+                } else if (this.currentTool === 'segment-edit' && points) {
+                    const movedIndices = new Set();
+                    this.selectedSegments.forEach(idx => {
+                        const prevIdx = (idx - 1 + points.length) % points.length;
+                        if (!movedIndices.has(idx)) {
                             points[idx].x += dx;
                             points[idx].y += dy;
-                        });
-                    }
-                } else if (this.currentTool === 'segment-edit' && this.activePathIdx !== -1) {
-                    const points = this.paths[this.activePathIdx];
-                    if (points) {
-                        this.selectedSegments.forEach(idx => {
-                            const prevIdx = (idx - 1 + points.length) % points.length;
-                            points[idx].x += dx;
-                            points[idx].y += dy;
+                            movedIndices.add(idx);
+                        }
+                        if (!movedIndices.has(prevIdx)) {
                             points[prevIdx].x += dx;
                             points[prevIdx].y += dy;
-                        });
-                    }
+                            movedIndices.add(prevIdx);
+                        }
+                    });
                 }
                 
                 this.lastDragX = potraceX;
                 this.lastDragY = potraceY;
                 
+                // Предаваме списък с фиксирани (влачени) точки на солвъра
+                const fixed = [];
+                if (this.currentTool === 'node-edit' && points) {
+                    this.selectedNodes.forEach(idx => fixed.push({ pathIdx: this.activePathIdx, nodeIdx: idx }));
+                } else if (this.currentTool === 'segment-edit' && this.activePathIdx !== -1) {
+                    this.selectedSegments.forEach(idx => {
+                        const prevIdx = (idx - 1 + points.length) % points.length;
+                        fixed.push({ pathIdx: this.activePathIdx, nodeIdx: idx });
+                        fixed.push({ pathIdx: this.activePathIdx, nodeIdx: prevIdx });
+                    });
+                } else if (this.currentTool === 'select') {
+                    this.selectedPaths.forEach(pIdx => {
+                        const pts = this.paths[pIdx];
+                        pts.forEach((pt, idx) => fixed.push({ pathIdx: pIdx, nodeIdx: idx }));
+                    });
+                }
+                
+                this.solve(fixed);
                 this.redraw();
                 return;
             }
@@ -1012,14 +1083,24 @@ const GraphicsManager = {
                 if (Math.hypot(endPt.x - this.drawStartPt.x, endPt.y - this.drawStartPt.y) > 2) {
                     this.saveState();
                     if (this.currentTool === 'rect') {
+                        const pathIdx = this.paths.length;
                         this.paths.push([
                             { x: this.drawStartPt.x, y: this.drawStartPt.y },
                             { x: endPt.x, y: this.drawStartPt.y },
                             { x: endPt.x, y: endPt.y },
                             { x: this.drawStartPt.x, y: endPt.y }
                         ]);
+                        this.addRelation({ type: 'vertical', pathIdx, segIdx: 0 });
+                        this.addRelation({ type: 'horizontal', pathIdx, segIdx: 1 });
+                        this.addRelation({ type: 'vertical', pathIdx, segIdx: 2 });
+                        this.addRelation({ type: 'horizontal', pathIdx, segIdx: 3 });
                     } else {
+                        const pathIdx = this.paths.length;
                         this.paths.push(this.createRoundRectPoints(this.drawStartPt.x, this.drawStartPt.y, endPt.x, endPt.y));
+                        this.addRelation({ type: 'horizontal', pathIdx, segIdx: 0 });
+                        this.addRelation({ type: 'vertical', pathIdx, segIdx: 2 });
+                        this.addRelation({ type: 'horizontal', pathIdx, segIdx: 4 });
+                        this.addRelation({ type: 'vertical', pathIdx, segIdx: 6 });
                     }
                 }
                 this.drawStartPt = null;
@@ -1278,6 +1359,23 @@ function setTool(tool) {
     const activeBtn = document.getElementById('ui-geo-' + tool);
     if (activeBtn) activeBtn.classList.add('active');
 
+    // Управление на бутоните за връзки (Relations)
+    const relationsGroup = ['horizontal', 'vertical', 'equal', 'parallel', 'collinear'];
+    relationsGroup.forEach(t => {
+        const btn = document.getElementById('ui-rel-' + t);
+        if (btn) {
+            if (tool === 'segment-edit') {
+                btn.style.opacity = "1";
+                btn.style.pointerEvents = "auto";
+                btn.style.filter = "none";
+            } else {
+                btn.style.opacity = "0.3";
+                btn.style.pointerEvents = "none";
+                btn.style.filter = "grayscale(1)";
+            }
+        }
+    });
+
     // Трансформация на селектирани обекти
     if (GraphicsManager.selectedPaths.length > 0) {
         let transformed = false;
@@ -1289,7 +1387,24 @@ function setTool(tool) {
             transformed = true;
         }
         
-        if (transformed) {
+        // Управление на бутоните за подравняване (Alignment)
+    const alignGroup = ['left', 'center', 'right', 'top', 'middle', 'bottom'];
+    alignGroup.forEach(t => {
+        const btn = document.getElementById('ui-align-' + t);
+        if (btn) {
+            if (tool === 'select') {
+                btn.style.opacity = "1";
+                btn.style.pointerEvents = "auto";
+                btn.style.filter = "none";
+            } else {
+                btn.style.opacity = "0.3";
+                btn.style.pointerEvents = "none";
+                btn.style.filter = "grayscale(1)";
+            }
+        }
+    });
+
+    if (transformed) {
             // Връщаме се към последната селекция
             const geometryGroup = ['line', 'rect', 'round-rect', 'mirror'];
             geometryGroup.forEach(t => document.getElementById('ui-geo-' + t)?.classList.remove('active'));
@@ -1313,6 +1428,10 @@ GraphicsManager.executeTransformToRect = function() {
             { x: bbox.maxX, y: bbox.maxY },
             { x: bbox.minX, y: bbox.maxY }
         ];
+        this.addRelation({ type: 'vertical', pathIdx: pIdx, segIdx: 0 });
+        this.addRelation({ type: 'horizontal', pathIdx: pIdx, segIdx: 1 });
+        this.addRelation({ type: 'vertical', pathIdx: pIdx, segIdx: 2 });
+        this.addRelation({ type: 'horizontal', pathIdx: pIdx, segIdx: 3 });
     });
     this.redraw();
 };
@@ -1324,6 +1443,10 @@ GraphicsManager.executeTransformToRoundRect = function() {
         if (!points) return;
         const bbox = this.getBBox(points);
         this.paths[pIdx] = this.createRoundRectPoints(bbox.minX, bbox.minY, bbox.maxX, bbox.maxY);
+        this.addRelation({ type: 'horizontal', pathIdx: pIdx, segIdx: 0 });
+        this.addRelation({ type: 'vertical', pathIdx: pIdx, segIdx: 2 });
+        this.addRelation({ type: 'horizontal', pathIdx: pIdx, segIdx: 4 });
+        this.addRelation({ type: 'vertical', pathIdx: pIdx, segIdx: 6 });
     });
     this.redraw();
 };
@@ -1400,6 +1523,355 @@ function exportSVG() {
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
 }
-function applyRelation(type) {}
+function applyRelation(type) {
+    GraphicsManager.applyRelation(type);
+}
+
+GraphicsManager.applyRelation = function(type) {
+    if (this.currentTool !== 'segment-edit' || this.activePathIdx === -1 || this.selectedSegments.length === 0) {
+        return;
+    }
+    this.saveState();
+    const points = this.paths[this.activePathIdx];
+    const n = points.length;
+
+    if (type === 'horizontal' || type === 'vertical') {
+        this.selectedSegments.forEach(segIdx => {
+            const p2 = points[segIdx];
+            const p1 = points[(segIdx - 1 + n) % n];
+            const dx = p2.x - p1.x;
+            const dy = p2.y - p1.y;
+            const angle = Math.atan2(dy, dx);
+            let deg = Math.abs(angle * 180 / Math.PI);
+            if (deg > 180) deg = 360 - deg;
+            
+            let canApply = false;
+            let targetAngle = 0;
+
+            if (type === 'horizontal') {
+                const diff = Math.min(deg, Math.abs(180 - deg));
+                if (diff < 70) {
+                    canApply = true;
+                    targetAngle = (deg > 90) ? Math.PI : 0;
+                }
+            } else {
+                const diff = Math.min(Math.abs(90 - deg), Math.abs(270 - deg));
+                if (diff < 70) {
+                    canApply = true;
+                    targetAngle = (angle > 0) ? Math.PI / 2 : -Math.PI / 2;
+                }
+            }
+
+            if (canApply) {
+                const midX = (p1.x + p2.x) / 2;
+                const midY = (p1.y + p2.y) / 2;
+                const len = Math.hypot(dx, dy);
+                
+                // Rotates around midpoint
+                p1.x = midX - Math.cos(targetAngle) * len / 2;
+                p1.y = midY - Math.sin(targetAngle) * len / 2;
+                p2.x = midX + Math.cos(targetAngle) * len / 2;
+                p2.y = midY + Math.sin(targetAngle) * len / 2;
+
+                this.addRelation({ type, pathIdx: this.activePathIdx, segIdx });
+            }
+        });
+    } else if (type === 'equal' || type === 'parallel' || type === 'collinear') {
+        if (this.selectedSegments.length < 2) return;
+        const refSegIdx = this.selectedSegments[0];
+        const refP2 = points[refSegIdx];
+        const refP1 = points[(refSegIdx - 1 + n) % n];
+        const refLen = Math.hypot(refP2.x - refP1.x, refP2.y - refP1.y);
+        const refAngle = Math.atan2(refP2.y - refP1.y, refP2.x - refP1.x);
+
+        for (let i = 1; i < this.selectedSegments.length; i++) {
+            const segIdx = this.selectedSegments[i];
+            const p2 = points[segIdx];
+            const p1 = points[(segIdx - 1 + n) % n];
+            const midX = (p1.x + p2.x) / 2;
+            const midY = (p1.y + p2.y) / 2;
+            let currentLen = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+            let currentAngle = Math.atan2(p2.y - p1.y, p2.x - p1.x);
+
+            if (type === 'equal') currentLen = refLen;
+            if (type === 'parallel' || type === 'collinear') currentAngle = refAngle;
+
+            if (type === 'collinear') {
+                // Project midpoint onto the line of reference segment
+                const dRefX = refP2.x - refP1.x;
+                const dRefY = refP2.y - refP1.y;
+                const refMag2 = dRefX * dRefX + dRefY * dRefY;
+                const u = ((midX - refP1.x) * dRefX + (midY - refP1.y) * dRefY) / refMag2;
+                const projX = refP1.x + u * dRefX;
+                const projY = refP1.y + u * dRefY;
+                
+                p1.x = projX - Math.cos(refAngle) * currentLen / 2;
+                p1.y = projY - Math.sin(refAngle) * currentLen / 2;
+                p2.x = projX + Math.cos(refAngle) * currentLen / 2;
+                p2.y = projY + Math.sin(refAngle) * currentLen / 2;
+            } else {
+                p1.x = midX - Math.cos(currentAngle) * currentLen / 2;
+                p1.y = midY - Math.sin(currentAngle) * currentLen / 2;
+                p2.x = midX + Math.cos(currentAngle) * currentLen / 2;
+                p2.y = midY + Math.sin(currentAngle) * currentLen / 2;
+            }
+            this.addRelation({ type, pathIdx: this.activePathIdx, segIdx, targetSegIdx: refSegIdx });
+        }
+    }
+    this.redraw();
+};
+
+GraphicsManager.addRelation = function(rel) {
+    // Проверка за съществуваща връзка (включително и огледална за симетрични типове)
+    const exists = this.relations.find(r => {
+        if (r.type !== rel.type) return false;
+        if (r.pathIdx !== rel.pathIdx) return false;
+        
+        // За H/V проверяваме директно
+        if (rel.type === 'horizontal' || rel.type === 'vertical') {
+            return r.segIdx === rel.segIdx;
+        }
+        
+        // За Equal, Parallel и Collinear проверяваме и двете посоки (A-B и B-A)
+        return (r.segIdx === rel.segIdx && r.targetSegIdx === rel.targetSegIdx) ||
+               (r.segIdx === rel.targetSegIdx && r.targetSegIdx === rel.segIdx);
+    });
+    if (!exists) this.relations.push(rel);
+};
+
+GraphicsManager.solve = function(fixed = []) {
+    // Подобрен солвър, който зачита фиксираните (влачени) точки
+    for (let iter = 0; iter < 5; iter++) {
+        let changed = false;
+        this.relations.forEach(rel => {
+            const points = this.paths[rel.pathIdx];
+            if (!points) return;
+            const n = points.length;
+            const p2Idx = rel.segIdx;
+            const p1Idx = (rel.segIdx - 1 + n) % n;
+            const p2 = points[p2Idx];
+            const p1 = points[p1Idx];
+            
+            const isP1Fixed = fixed.some(f => f.pathIdx === rel.pathIdx && f.nodeIdx === p1Idx);
+            const isP2Fixed = fixed.some(f => f.pathIdx === rel.pathIdx && f.nodeIdx === p2Idx);
+
+            if (rel.type === 'horizontal') {
+                if (Math.abs(p1.y - p2.y) > 0.01) {
+                    if (isP1Fixed && !isP2Fixed) p2.y = p1.y;
+                    else if (!isP1Fixed && isP2Fixed) p1.y = p2.y;
+                    else if (!isP1Fixed && !isP2Fixed) {
+                        const midY = (p1.y + p2.y) / 2;
+                        p1.y = p2.y = midY;
+                    }
+                    changed = true;
+                }
+            } else if (rel.type === 'vertical') {
+                if (Math.abs(p1.x - p2.x) > 0.01) {
+                    if (isP1Fixed && !isP2Fixed) p2.x = p1.x;
+                    else if (!isP1Fixed && isP2Fixed) p1.x = p2.x;
+                    else if (!isP1Fixed && !isP2Fixed) {
+                        const midX = (p1.x + p2.x) / 2;
+                        p1.x = p2.x = midX;
+                    }
+                    changed = true;
+                }
+            } else if (rel.type === 'equal') {
+                const tp = this.paths[rel.pathIdx];
+                const tp2Idx = rel.targetSegIdx;
+                const tp1Idx = (tp2Idx - 1 + tp.length) % tp.length;
+                const tp2 = tp[tp2Idx];
+                const tp1 = tp[tp1Idx];
+                
+                const targetLen = Math.hypot(tp2.x - tp1.x, tp2.y - tp1.y);
+                const currentLen = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+                if (Math.abs(currentLen - targetLen) > 0.01) {
+                    const midX = (p1.x + p2.x) / 2;
+                    const midY = (p1.y + p2.y) / 2;
+                    const angle = Math.atan2(p2.y - p1.y, p2.x - p1.x);
+                    
+                    if (isP1Fixed && !isP2Fixed) {
+                        p2.x = p1.x + Math.cos(angle) * targetLen;
+                        p2.y = p1.y + Math.sin(angle) * targetLen;
+                    } else if (!isP1Fixed && isP2Fixed) {
+                        p1.x = p2.x - Math.cos(angle) * targetLen;
+                        p1.y = p2.y - Math.sin(angle) * targetLen;
+                    } else if (!isP1Fixed && !isP2Fixed) {
+                        p1.x = midX - Math.cos(angle) * targetLen / 2;
+                        p1.y = midY - Math.sin(angle) * targetLen / 2;
+                        p2.x = midX + Math.cos(angle) * targetLen / 2;
+                        p2.y = midY + Math.sin(angle) * targetLen / 2;
+                    }
+                    changed = true;
+                }
+            } else if (rel.type === 'parallel' || rel.type === 'collinear') {
+                const tp = this.paths[rel.pathIdx];
+                const tp2 = tp[rel.targetSegIdx];
+                const tp1 = tp[(rel.targetSegIdx - 1 + tp.length) % tp.length];
+                const targetAngle = Math.atan2(tp2.y - tp1.y, tp2.x - tp1.x);
+                const currentAngle = Math.atan2(p2.y - p1.y, p2.x - p1.x);
+                const currentLen = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+                
+                if (Math.abs(currentAngle - targetAngle) > 0.001) {
+                    const midX = (p1.x + p2.x) / 2;
+                    const midY = (p1.y + p2.y) / 2;
+                    if (isP1Fixed && !isP2Fixed) {
+                        p2.x = p1.x + Math.cos(targetAngle) * currentLen;
+                        p2.y = p1.y + Math.sin(targetAngle) * currentLen;
+                    } else if (!isP1Fixed && isP2Fixed) {
+                        p1.x = p2.x - Math.cos(targetAngle) * currentLen;
+                        p1.y = p2.y - Math.sin(targetAngle) * currentLen;
+                    } else {
+                        p1.x = midX - Math.cos(targetAngle) * currentLen / 2;
+                        p1.y = midY - Math.sin(targetAngle) * currentLen / 2;
+                        p2.x = midX + Math.cos(targetAngle) * currentLen / 2;
+                        p2.y = midY + Math.sin(targetAngle) * currentLen / 2;
+                    }
+                    changed = true;
+                }
+                if (rel.type === 'collinear') {
+                     const dRefX = tp2.x - tp1.x;
+                     const dRefY = tp2.y - tp1.y;
+                     const refMag2 = dRefX * dRefX + dRefY * dRefY;
+                     const u = ((midX - tp1.x) * dRefX + (midY - tp1.y) * dRefY) / refMag2;
+                     const projX = tp1.x + u * dRefX;
+                     const projY = tp1.y + u * dRefY;
+                     
+                     if (isP1Fixed && !isP2Fixed) {
+                         p2.x = projX + (p2.x > p1.x ? currentLen : -currentLen) / 2; // Rough fix
+                         p2.y = projY + (p2.y > p1.y ? currentLen : -currentLen) / 2;
+                     } // TODO: better collinear solve
+                }
+            }
+        });
+        if (!changed) break;
+    }
+};
+
+GraphicsManager.align = function(type) {
+    if (this.currentTool !== 'select' || this.selectedPaths.length < 2) return;
+    
+    this.saveState();
+    
+    // Последният селектиран обект е референтен
+    const refPathIdx = this.selectedPaths[this.selectedPaths.length - 1];
+    const refPoints = this.paths[refPathIdx];
+    const refBBox = this.getBBox(refPoints);
+    const refMidX = (refBBox.minX + refBBox.maxX) / 2;
+    const refMidY = (refBBox.minY + refBBox.maxY) / 2;
+    
+    // Всички останали се подравняват спрямо него
+    for (let i = 0; i < this.selectedPaths.length - 1; i++) {
+        const pIdx = this.selectedPaths[i];
+        const points = this.paths[pIdx];
+        const bbox = this.getBBox(points);
+        const midX = (bbox.minX + bbox.maxX) / 2;
+        const midY = (bbox.minY + bbox.maxY) / 2;
+        
+        let dx = 0;
+        let dy = 0;
+        
+        switch(type) {
+            case 'left':   dx = refBBox.minX - bbox.minX; break;
+            case 'center': dx = refMidX - midX; break;
+            case 'right':  dx = refBBox.maxX - bbox.maxX; break;
+            case 'top':    dy = refBBox.minY - bbox.minY; break;
+            case 'middle': dy = refMidY - midY; break;
+            case 'bottom': dy = refBBox.maxY - bbox.maxY; break;
+        }
+        
+        if (dx !== 0 || dy !== 0) {
+            points.forEach(p => {
+                p.x += dx;
+                p.y += dy;
+            });
+        }
+    }
+    
+    // Връзките трябва да се актуализират (ако има такива между различните обекти)
+    this.solve();
+    this.redraw();
+};
+
+GraphicsManager.getSegmentRelations = function(pathIdx) {
+    const res = {};
+    this.relations.forEach(r => {
+        // Проверяваме дали текущият път притежава единия или другия сегмент от връзката
+        if (r.pathIdx === pathIdx) {
+            if (!res[r.segIdx]) res[r.segIdx] = [];
+            if (!res[r.segIdx].includes(r)) res[r.segIdx].push(r);
+            
+            // Визуализираме и на референтния (втория) сегмент за релационни типове
+            if (r.targetSegIdx !== undefined) {
+                if (!res[r.targetSegIdx]) res[r.targetSegIdx] = [];
+                if (!res[r.targetSegIdx].includes(r)) res[r.targetSegIdx].push(r);
+            }
+        }
+    });
+    return res;
+};
+
+GraphicsManager.getSegmentMidpoint = function(pathIdx, segIdx) {
+    const points = this.paths[pathIdx];
+    const n = points.length;
+    const p2 = points[segIdx];
+    const p1 = points[(segIdx - 1 + n) % n];
+    return { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 };
+};
+
+GraphicsManager.renderRelations = function() {
+    if (this.currentTool !== 'segment-edit' || this.activePathIdx === -1) return;
+    
+    const rels = this.getSegmentRelations(this.activePathIdx);
+    const size = 16 / (this.imgScale * this.userZoom);
+    const gap = 4 / (this.imgScale * this.userZoom);
+    
+    for (const [segIdx, list] of Object.entries(rels)) {
+        const sIdx = parseInt(segIdx);
+        const pos = this.getSegmentMidpoint(this.activePathIdx, sIdx);
+        
+        list.forEach((rel, i) => {
+            const rx = pos.x + (i * (size + gap));
+            const ry = pos.y + 10 / (this.imgScale * this.userZoom);
+            
+            this.ctx.save();
+            this.ctx.fillStyle = "yellow";
+            this.ctx.strokeStyle = (this.selectedRelation === rel) ? "red" : "black";
+            this.ctx.lineWidth = 1 / (this.imgScale * this.userZoom);
+            
+            this.ctx.beginPath();
+            this.ctx.rect(rx - size/2, ry - size/2, size, size);
+            this.ctx.fill();
+            this.ctx.stroke();
+            
+            // Draw Icon
+            this.ctx.strokeStyle = "black";
+            this.ctx.beginPath();
+            const iconSize = size * 0.6;
+            if (rel.type === 'horizontal') {
+                this.ctx.moveTo(rx - iconSize/2, ry);
+                this.ctx.lineTo(rx + iconSize/2, ry);
+            } else if (rel.type === 'vertical') {
+                this.ctx.moveTo(rx, ry - iconSize/2);
+                this.ctx.lineTo(rx, ry + iconSize/2);
+            } else if (rel.type === 'equal') {
+                this.ctx.moveTo(rx - iconSize/2, ry - 2);
+                this.ctx.lineTo(rx + iconSize/2, ry - 2);
+                this.ctx.moveTo(rx - iconSize/2, ry + 2);
+                this.ctx.lineTo(rx + iconSize/2, ry + 2);
+            } else if (rel.type === 'parallel') {
+                this.ctx.moveTo(rx - 2, ry - iconSize/2);
+                this.ctx.lineTo(rx + 2, ry + iconSize/2);
+                this.ctx.moveTo(rx - 6, ry - iconSize/2);
+                this.ctx.lineTo(rx - 2, ry + iconSize/2);
+            } else if (rel.type === 'collinear') {
+                this.ctx.setLineDash([2 / (this.imgScale * this.userZoom)]);
+                this.ctx.moveTo(rx - iconSize/2, ry);
+                this.ctx.lineTo(rx + iconSize/2, ry);
+            }
+            this.ctx.stroke();
+            this.ctx.restore();
+        });
+    }
+};
 
 window.addEventListener('load', () => GraphicsManager.init());

@@ -64,7 +64,14 @@
   "ui-rel-horizontal": "Horizontal",
   "ui-rel-vertical": "Vertical",
   "ui-rel-equal": "Equal",
-  "ui-rel-fix": "Fix",
+  "ui-rel-parallel": "Parallel",
+  "ui-rel-collinear": "Collinear",
+  "ui-align-top": "Align Top",
+  "ui-align-middle": "Align Middle",
+  "ui-align-bottom": "Align Bottom",
+  "ui-align-left": "Align Left",
+  "ui-align-center": "Align Center",
+  "ui-align-right": "Align Right",
   "ui-geo-export": "Save (SVG)",
   "ui-geo-zoom-reset": "Zoom All / Reset"
 }
