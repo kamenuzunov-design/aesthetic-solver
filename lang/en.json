@@ -57,6 +57,7 @@
   "ui-geo-segment-edit": "Edit Segments",
   "ui-geo-node-edit": "Node Edit",
   "ui-geo-mirror": "Symmetry",
+  "ui-geo-copy": "Copy",
   "ui-geo-line": "Line",
   "ui-geo-rect": "Rectangle",
   "ui-geo-round-rect": "Rounded Rectangle",
@@ -73,5 +74,8 @@
   "ui-align-center": "Align Center",
   "ui-align-right": "Align Right",
   "ui-geo-export": "Save (SVG)",
-  "ui-geo-zoom-reset": "Zoom All / Reset"
+  "ui-geo-zoom-reset": "Zoom All / Reset",
+  "ui-geo-save-project": "Save Project",
+  "ui-geo-load-project": "Load Project",
+  "ui-prompt-project-name": "Please enter project name:"
 }

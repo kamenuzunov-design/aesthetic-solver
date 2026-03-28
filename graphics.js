@@ -65,6 +65,8 @@ const GraphicsManager = {
     dragTarget: null,      
     drawStartPt: null,      // За Rectangle/Round-Rect
     currentPoints: [],      // За Line tool
+    imageFileName: null,
+    projectName: null,
     relations: [],          // { type, pathIdx, segIdx, targetPathIdx, targetSegIdx }
     selectedRelation: null, 
 
@@ -189,6 +191,40 @@ const GraphicsManager = {
         } else {
             alert("Моля, селектирайте 1 или 2 полилинии чрез инструмента 'Селекция' първо.");
         }
+    },
+
+    copySelected: function() {
+        if (this.selectedPaths.length === 0) return;
+        this.saveState();
+        
+        const newPathsIndices = [];
+        const offset = 20 / (this.imgScale * this.userZoom);
+        
+        this.selectedPaths.forEach(pIdx => {
+            const originalPath = this.paths[pIdx];
+            if (!originalPath) return;
+            
+            // Клонираме точките с офсет
+            const clonedPath = originalPath.map(p => ({
+                ...p,
+                x: p.x + offset,
+                y: p.y + offset
+            }));
+            
+            const newIdx = this.paths.length;
+            this.paths.push(clonedPath);
+            newPathsIndices.push(newIdx);
+            
+            // Клонираме и връзките, които са вътрешни за този път
+            const pathRels = this.relations.filter(r => r.pathIdx === pIdx);
+            pathRels.forEach(r => {
+                const newRel = { ...r, pathIdx: newIdx };
+                this.addRelation(newRel);
+            });
+        });
+        
+        this.selectedPaths = newPathsIndices;
+        this.redraw();
     },
     
     getBBox: function(points) {
@@ -484,8 +520,23 @@ const GraphicsManager = {
                         this.runPotrace();
                     };
                     this.bgImage.src = f.target.result;
+                    this.imageFileName = e.target.files[0].name;
                 };
                 if (e.target.files[0]) reader.readAsDataURL(e.target.files[0]);
+            });
+        }
+
+        const projectLoad = document.getElementById('projectLoad');
+        if (projectLoad) {
+            projectLoad.addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = (f) => {
+                        this.loadProjectData(f.target.result);
+                    };
+                    reader.readAsText(file);
+                }
             });
         }
 
@@ -679,9 +730,23 @@ const GraphicsManager = {
             
             if (this.currentTool === 'select' || this.currentTool === 'node-edit' || this.currentTool === 'segment-edit') {
                 const ctrlKey = e.ctrlKey || e.metaKey;
+                const shiftKey = e.shiftKey;
                 
                 if (hit) {
-                    this.saveState(); // Запазваме състоянието за Undo преди местене
+                    if (this.currentTool === 'select' && shiftKey) {
+                        // Клонираме при Shift + Drag
+                        this.saveState();
+                        if (!this.selectedPaths.includes(hit.pathIdx)) {
+                            this.selectedPaths = [hit.pathIdx];
+                        }
+                        this.copySelected();
+                        // copySelected вече е направил saveState и е селектирал новите обекти
+                        // Сега трябва да обновим dragTarget да сочи към новия клониран обект
+                        // Тъй като copySelected добавя в края, новия индекс е (дължина - 1)
+                        this.dragTarget = { type: 'path', pathIdx: this.paths.length - 1 };
+                    } else {
+                        this.saveState(); // Запазваме състоянието за Undo преди местене
+                    }
                     
                     if (this.currentTool === 'select') {
                         // Работа с цели пътища
@@ -1340,6 +1405,74 @@ const GraphicsManager = {
         this.activePathIdx = pathAIdx < bIdxToRemove ? pathAIdx : Math.max(0, pathAIdx - 1);
         this.selectedNodes = [];
         this.redraw();
+    },
+
+    saveProject: function() {
+        if (!this.projectName) {
+            const msg = (window.Lang && window.Lang["ui-prompt-project-name"]) || "Моля, въведете име на проекта:";
+            const name = prompt(msg, "New Design");
+            if (!name) return;
+            this.projectName = name;
+        }
+
+        const projectData = {
+            version: "1.0",
+            projectName: this.projectName,
+            imageFileName: this.imageFileName,
+            imageData: this.bgImage.src.startsWith('data:') ? this.bgImage.src : null,
+            paths: this.paths,
+            relations: this.relations
+        };
+
+        const blob = new Blob([JSON.stringify(projectData, null, 2)], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = this.projectName + ".ASPro";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    },
+
+    loadProjectData: function(jsonString) {
+        try {
+            const data = JSON.parse(jsonString);
+            if (!data.paths) throw new Error("Invalid project file");
+
+            this.saveState();
+            this.paths = data.paths || [];
+            this.relations = data.relations || [];
+            this.projectName = data.projectName || null;
+            this.imageFileName = data.imageFileName || null;
+
+            if (data.imageData) {
+                this.bgImage.onload = () => {
+                    this.resize();
+                    this.redraw();
+                };
+                this.bgImage.src = data.imageData;
+            }
+
+            this.selectedPaths = [];
+            this.activePathIdx = -1;
+            this.selectedNodes = [];
+            this.selectedSegments = [];
+
+            if (this.imageFileName) {
+                const msg = (window.Lang && window.Lang["bg"] === "bg") ? 
+                    `Проектът изисква изображение: ${this.imageFileName}. Ако не се зареди автоматично, моля изберете го ръчно.` :
+                    `Project requires image: ${this.imageFileName}. If it doesn't load automatically, please select it manually.`;
+                console.log(msg);
+                // В браузъра не можем да заредим автоматично файл от диск по име без потребителско действие,
+                // затова просто информираме или оставяме празен фон.
+            }
+            
+            this.redraw();
+        } catch (e) {
+            console.error("Грешка при зареждане на проекта:", e);
+            alert("Грешка при зареждане на проекта!");
+        }
     }
 };
 
@@ -1376,21 +1509,12 @@ function setTool(tool) {
         }
     });
 
-    // Трансформация на селектирани обекти
-    if (GraphicsManager.selectedPaths.length > 0) {
-        let transformed = false;
-        if (tool === 'rect') {
-            GraphicsManager.executeTransformToRect();
-            transformed = true;
-        } else if (tool === 'round-rect') {
-            GraphicsManager.executeTransformToRoundRect();
-            transformed = true;
-        }
-        
-        // Управление на бутоните за подравняване (Alignment)
+    // Бутони, активни само при 'select'
+    const selectOnlyGroup = ['mirror', 'copy'];
     const alignGroup = ['left', 'center', 'right', 'top', 'middle', 'bottom'];
-    alignGroup.forEach(t => {
-        const btn = document.getElementById('ui-align-' + t);
+    
+    [...selectOnlyGroup, ...alignGroup].forEach(t => {
+        const btn = document.getElementById('ui-geo-' + t) || document.getElementById('ui-align-' + t);
         if (btn) {
             if (tool === 'select') {
                 btn.style.opacity = "1";
@@ -1404,7 +1528,18 @@ function setTool(tool) {
         }
     });
 
-    if (transformed) {
+    // Трансформация на селектирани обекти
+    if (GraphicsManager.selectedPaths.length > 0) {
+        let transformed = false;
+        if (tool === 'rect') {
+            GraphicsManager.executeTransformToRect();
+            transformed = true;
+        } else if (tool === 'round-rect') {
+            GraphicsManager.executeTransformToRoundRect();
+            transformed = true;
+        }
+        
+        if (transformed) {
             // Връщаме се към последната селекция
             const geometryGroup = ['line', 'rect', 'round-rect', 'mirror'];
             geometryGroup.forEach(t => document.getElementById('ui-geo-' + t)?.classList.remove('active'));

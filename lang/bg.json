@@ -59,6 +59,7 @@
   "ui-geo-segment-edit": "Редактиране на сегменти",
   "ui-geo-node-edit": "Редактиране на възли",
   "ui-geo-mirror": "Симетрия",
+  "ui-geo-copy": "Копиране",
   "ui-geo-line": "Линия",
   "ui-geo-rect": "Правоъгълник",
   "ui-geo-round-rect": "Заоблен правоъгълник",
@@ -75,5 +76,8 @@
   "ui-align-center": "Подравняване в центъра (хоризонтално)",
   "ui-align-right": "Подравняване отдясно",
   "ui-geo-export": "Запис (SVG)",
-  "ui-geo-zoom-reset": "Нулиране на мащаба"
+  "ui-geo-zoom-reset": "Нулиране на мащаба",
+  "ui-geo-save-project": "Запиши проекта",
+  "ui-geo-load-project": "Зареди проект",
+  "ui-prompt-project-name": "Моля, въведете име на проекта:"
 }
