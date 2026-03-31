@@ -199,16 +199,52 @@ const NominalManager = {
     performAnalysis: function() {
         this.answers = {};
         document.querySelectorAll('#questionnaire-content input:checked').forEach(i => this.answers[i.name] = i.value);
-        const series = AestheticSolver.generateColumn(this.nominalValue, 1.122, "Analysis");
+        
+        // --- NEW: Dynamic System Detection ---
+        const best = this.findBestSystem();
+        const optEl = document.getElementById(`opt-${best.id_key}`);
+        this.detectedSystemName = optEl ? optEl.innerText : best.name;
+        
+        const series = AestheticSolver.generateColumn(this.nominalValue, best.val, "Analysis");
         this.preferredSeries = series.filter(v => typeof v === 'number');
+        
         this.originalPaths = JSON.parse(JSON.stringify(GraphicsManager.paths));
         this.harmonizePathsHierarchy();
+        
         document.getElementById('ui-questionnaire-dialog').style.display = 'none';
         document.getElementById('ui-geo-nominal-exit').style.display = 'inline-flex';
         document.getElementById('ui-geo-nominal').style.display = 'none';
+        
         this.isSplitView = true;
         this.setupSplitViewRedraw();
         GraphicsManager.redraw();
+    },
+
+    findBestSystem: function() {
+        let bestRatio = AestheticSolver.ratios[4]; // Default to III RPCH (1.122)
+        let maxHits = -1;
+        const tol = 0.03; // Slightly wider tolerance for detection
+
+        AestheticSolver.ratios.forEach(r => {
+            const series = AestheticSolver.generateColumn(this.nominalValue, r.val, "Test");
+            const numericSeries = series.filter(v => typeof v === 'number');
+            let currentHits = 0;
+
+            GraphicsManager.selectedPaths.forEach(pIdx => {
+                const path = GraphicsManager.paths[pIdx];
+                for (let i = 1; i < path.length; i++) {
+                    const unitLen = Math.hypot(path[i].x - path[i-1].x, path[i].y - path[i-1].y) * this.pxToUnitRatio;
+                    const closest = numericSeries.reduce((prev, curr) => Math.abs(curr - unitLen) < Math.abs(prev - unitLen) ? curr : prev, numericSeries[0]);
+                    if (Math.abs(unitLen - closest) / closest <= tol) currentHits++;
+                }
+            });
+
+            if (currentHits > maxHits) {
+                maxHits = currentHits;
+                bestRatio = r;
+            }
+        });
+        return bestRatio;
     },
 
     exitAnalysis: function() {
@@ -317,7 +353,7 @@ const NominalManager = {
                 }
             };
             drawBox(this.originalPaths, canvas.width * 0.25, this.getT("ui-analysis-original"), 0.3, false);
-            drawBox(GraphicsManager.paths, canvas.width * 0.75, this.getT("ui-analysis-harmonized"), 1.0, true);
+            drawBox(GraphicsManager.paths, canvas.width * 0.75, `${this.getT("ui-analysis-harmonized")} (${this.detectedSystemName})`, 1.0, true);
         };
     },
 
@@ -331,14 +367,32 @@ const NominalManager = {
         const ctx = GraphicsManager.ctx;
         const bbox = this.getPathsBBox(paths);
         const cX = (bbox.minX + bbox.maxX)/2, cY = (bbox.minY + bbox.maxY)/2;
-        ctx.globalAlpha = opacity; ctx.lineWidth = 6; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+        
+        ctx.globalAlpha = opacity; 
+        ctx.lineWidth = 1; // Fixed: Now 1px thickness as requested
+        ctx.lineCap = 'round'; 
+        ctx.lineJoin = 'round';
+        
         paths.forEach(pts => {
-            for (let i = 1; i < pts.length; i++) {
+            if (pts.length < 2) return;
+            const isClosed = pts[0].isClosed !== false;
+            const n = pts.length;
+
+            for (let i = 0; i < n; i++) {
+                if (!isClosed && i === 0) continue; // Skip closure for open paths
+                
+                const p2 = pts[i];
+                const p1 = pts[(i - 1 + n) % n];
+                
                 ctx.beginPath();
-                ctx.moveTo(pts[i-1].x - cX, pts[i-1].y - cY);
-                ctx.lineTo(pts[i].x - cX, pts[i].y - cY);
-                if (showStatus) ctx.strokeStyle = (pts[i].analysisStatus === 'hit') ? '#28a745' : '#dc3545';
-                else ctx.strokeStyle = '#999';
+                ctx.moveTo(p1.x - cX, p1.y - cY);
+                ctx.lineTo(p2.x - cX, p2.y - cY);
+                
+                if (showStatus) {
+                    ctx.strokeStyle = (p2.analysisStatus === 'hit') ? '#28a745' : '#dc3545';
+                } else {
+                    ctx.strokeStyle = '#999';
+                }
                 ctx.stroke();
             }
         });
