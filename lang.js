@@ -1,20 +1,29 @@
+/**
+ * Language Management Module
+ */
+
 window.currentLangData = {}; 
 
 async function setLanguage(langCode) {
     try {
         const response = await fetch(`lang/${langCode}.json?v=${new Date().getTime()}`);
-        if (!response.ok) throw new Error(`Файлът ${langCode}.json не е намерен`);
+        if (!response.ok) throw new Error(`File ${langCode}.json not found`);
         
         const data = await response.json();
+        
+        // 1. Записваме данните в глобалния обект (чрез референция)
+        Object.assign(window.currentLangData, data);
+        // За всеки случай презаписваме и самата променлива
         window.currentLangData = data; 
 
-        // Обновяваме всички статични елементи (Title, Labels, Buttons)
+        // 2. Обновяваме статичните елементи в DOM
         Object.keys(data).forEach(key => {
             const element = document.getElementById(key);
             if (element) {
-                // Ако е бутон от таскибара с икона, обновяваме само title, за да не изтрием SVG-то
                 if (element.classList.contains('geo-toolbar-btn')) {
                     element.title = data[key];
+                } else if (element.tagName === 'INPUT' && (element.type === 'button' || element.type === 'submit')) {
+                    element.value = data[key];
                 } else {
                     element.textContent = data[key];
                 }
@@ -23,16 +32,14 @@ async function setLanguage(langCode) {
  
         localStorage.setItem('preferredLang', langCode);
 
-        // ЕДВА СЕГА викаме calculate, когато езикът е зареден в window.currentLangData
-        if (typeof calculate === "function") {
-            calculate();
-        }
+        if (typeof calculate === "function") calculate();
+        
+        console.log(`Language set to: ${langCode}`, Object.keys(data).length, "keys loaded.");
     } catch (error) {
-        console.error("Грешка при локализацията:", error);
+        console.error("Localization error:", error);
     }
 }
 
-// Изпълнява се веднага при зареждане
 document.addEventListener('DOMContentLoaded', () => {
     const savedLang = localStorage.getItem('preferredLang') || 'bg';
     setLanguage(savedLang);

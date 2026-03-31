@@ -193,12 +193,12 @@ const GraphicsManager = {
         }
     },
 
-    copySelected: function() {
+    copySelected: function(useOffset = true) {
         if (this.selectedPaths.length === 0) return;
         this.saveState();
         
         const newPathsIndices = [];
-        const offset = 20 / (this.imgScale * this.userZoom);
+        const offset = useOffset ? (20 / (this.imgScale * this.userZoom)) : 0;
         
         this.selectedPaths.forEach(pIdx => {
             const originalPath = this.paths[pIdx];
@@ -695,7 +695,7 @@ const GraphicsManager = {
 
         // Mouse Pan & Selection & Node Edit
         this.canvas.addEventListener('mousedown', (e) => {
-            const hit = this.getHitInfo(e.clientX, e.clientY);
+            let hit = this.getHitInfo(e.clientX, e.clientY);
             
             // 1. Pan с десен или среден бутон
             if (e.button === 1 || e.button === 2) {
@@ -739,13 +739,12 @@ const GraphicsManager = {
                         if (!this.selectedPaths.includes(hit.pathIdx)) {
                             this.selectedPaths = [hit.pathIdx];
                         }
-                        this.copySelected();
-                        // copySelected вече е направил saveState и е селектирал новите обекти
-                        // Сега трябва да обновим dragTarget да сочи към новия клониран обект
-                        // Тъй като copySelected добавя в края, новия индекс е (дължина - 1)
-                        this.dragTarget = { type: 'path', pathIdx: this.paths.length - 1 };
+                        this.copySelected(false);
+                        // Обновяваме 'hit', за да сочи към един от новосъздадените пътища
+                        hit = { type: 'path', pathIdx: this.paths.length - 1 };
+                        this.dragTarget = hit;
                     } else {
-                        this.saveState(); // Запазваме състоянието за Undo преди местене
+                        this.saveState(); // Запазваме за Undo преди местене
                     }
                     
                     if (this.currentTool === 'select') {
@@ -1357,6 +1356,13 @@ const GraphicsManager = {
     showConnectDialog: function(onYes) {
         const dialog = document.getElementById('ui-connect-dialog');
         if (!dialog) { if (onYes) onYes(); return; }
+        
+        // Обновяваме текста на диалога при показване (за всеки случай)
+        const promptElem = document.getElementById('ui-connect-prompt');
+        if (promptElem && window.currentLangData && window.currentLangData["ui-connect-prompt"]) {
+            promptElem.textContent = window.currentLangData["ui-connect-prompt"];
+        }
+
         dialog.style.display = 'flex';
         
         const btnYes = document.getElementById('ui-btn-yes');
@@ -1365,6 +1371,71 @@ const GraphicsManager = {
         const cleanup = () => { dialog.style.display = 'none'; btnYes.onclick = null; btnNo.onclick = null; };
         btnYes.onclick = () => { cleanup(); if (onYes) onYes(); };
         btnNo.onclick  = () => { cleanup(); this.redraw(); };
+    },
+
+    handleLoadProjectClick: function() {
+        const hasContent = this.paths.length > 0 || (this.bgImage.src && this.bgImage.src.length > 0);
+        if (hasContent) {
+            this.showSaveBeforeLoadDialog(() => {
+                // Продължаваме към зареждане след запис или потвърждение за изчистване
+                document.getElementById('projectLoad').click();
+            });
+        } else {
+            document.getElementById('projectLoad').click();
+        }
+    },
+
+    showSaveBeforeLoadDialog: function(onContinue) {
+        const dialog = document.getElementById('ui-save-before-load-dialog');
+        if (!dialog) { onContinue(); return; }
+        dialog.style.display = 'flex';
+
+        const btnSave = document.getElementById('ui-btn-save-confirm');
+        const btnDontSave = document.getElementById('ui-btn-dont-save');
+        const btnCancel = document.getElementById('ui-btn-cancel-load');
+
+        const cleanup = () => {
+            dialog.style.display = 'none';
+            btnSave.onclick = null;
+            btnDontSave.onclick = null;
+            btnCancel.onclick = null;
+        };
+
+        btnSave.onclick = () => {
+            cleanup();
+            this.saveProject();
+            // След saveProject (който е синхронен prompt), предлагаме зареждане
+            setTimeout(() => onContinue(), 500);
+        };
+
+        btnDontSave.onclick = () => {
+            cleanup();
+            this.clearCanvas();
+            onContinue();
+        };
+
+        btnCancel.onclick = () => {
+            cleanup();
+        };
+    },
+
+    clearCanvas: function() {
+        this.paths = [];
+        this.relations = [];
+        this.selectedPaths = [];
+        this.activePathIdx = -1;
+        this.selectedNodes = [];
+        this.selectedSegments = [];
+        this.history = [];
+        this.projectName = null;
+        this.imageFileName = null;
+        this.bgImage = new Image();
+        this.potraceImg = null;
+        this.lastSvgString = null;
+        this.userZoom = 1.0;
+        this.panX = 0;
+        this.panY = 0;
+        this.redraw();
     },
 
     executeJoin: function(pathAIdx, nodeAIdx, pathBIdx, nodeBIdx) {
@@ -1440,7 +1511,9 @@ const GraphicsManager = {
             const data = JSON.parse(jsonString);
             if (!data.paths) throw new Error("Invalid project file");
 
-            this.saveState();
+            // Първо изчистваме всичко
+            this.clearCanvas();
+
             this.paths = data.paths || [];
             this.relations = data.relations || [];
             this.projectName = data.projectName || null;
@@ -1452,6 +1525,9 @@ const GraphicsManager = {
                     this.redraw();
                 };
                 this.bgImage.src = data.imageData;
+            } else {
+                this.resize();
+                this.redraw();
             }
 
             this.selectedPaths = [];
