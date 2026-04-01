@@ -377,6 +377,11 @@
 			<div id="canvas-wrapper" style="position: relative; width: 100%; background: #fff; border: 1px solid #ccc; overflow: hidden; height: calc(85vh - 52px); border-radius: 0 0 8px 8px;">
 				<canvas id="mainCanvas" style="position: absolute; top: 0; left: 0; z-index: 2;"></canvas>
 				<canvas id="gridCanvas" style="position: absolute; top: 0; left: 0; z-index: 1; pointer-events: none;"></canvas>
+				
+				<!-- Информационно поле за стъпките на анализа -->
+				<div id="ui-analysis-status" style="display: none; position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 10; background: rgba(44, 62, 80, 0.9); color: white; padding: 12px 25px; border-radius: 50px; font-family: 'Segoe UI', Tahoma, sans-serif; box-shadow: 0 4px 15px rgba(0,0,0,0.3); pointer-events: none; transition: opacity 0.3s;">
+					<span id="ui-analysis-status-text">Анализ...</span>
+				</div>
 			</div>
 		</section>
 

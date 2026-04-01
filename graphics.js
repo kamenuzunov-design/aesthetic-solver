@@ -65,6 +65,7 @@ const GraphicsManager = {
     dragTarget: null,      
     drawStartPt: null,      // За Rectangle/Round-Rect
     currentPoints: [],      // За Line tool
+    highlightedSegment: null, // { pathIdx, segIdx } за визуализация при анализ
     imageFileName: null,
     projectName: null,
     relations: [],          // { type, pathIdx, segIdx, targetPathIdx, targetSegIdx }
@@ -372,6 +373,30 @@ const GraphicsManager = {
                 
                 this.ctx.strokeStyle = color;
                 this.ctx.stroke();
+
+                // Highlight for Analysis Step-by-Step
+                if (this.highlightedSegment && this.highlightedSegment.pathIdx === pathIdx && this.highlightedSegment.segIdx === i) {
+                    this.ctx.save();
+                    this.ctx.strokeStyle = "#ff00ff"; // Vivid Magenta for highlighting
+                    this.ctx.lineWidth = 3 / (this.imgScale * this.userZoom);
+                    this.ctx.stroke();
+                    
+                    // Draw Dimension Label
+                    if (window.NominalManager) {
+                        const midX = (points[prevIdx].x + points[i].x) / 2;
+                        const midY = (points[prevIdx].y + points[i].y) / 2;
+                        const len = Math.hypot(points[i].x - points[prevIdx].x, points[i].y - points[prevIdx].y);
+                        const unitVal = Math.round(len * window.NominalManager.pxToUnitRatio);
+                        
+                        this.ctx.font = `bold ${18 / (this.imgScale * this.userZoom)}px Segoe UI, sans-serif`;
+                        this.ctx.fillStyle = "#ff00ff";
+                        this.ctx.textAlign = "center";
+                        this.ctx.shadowBlur = 4;
+                        this.ctx.shadowColor = "white";
+                        this.ctx.fillText(`${unitVal}${window.NominalManager.nominalUnit}`, midX, midY - (10 / (this.imgScale * this.userZoom)));
+                    }
+                    this.ctx.restore();
+                }
             }
         });
     },
@@ -697,7 +722,13 @@ const GraphicsManager = {
         this.canvas.addEventListener('mousedown', (e) => {
             let hit = this.getHitInfo(e.clientX, e.clientY);
             
-            // 1. Pan с десен или среден бутон
+            // 1. Продължаване на анализа при клик (Step-by-Step)
+            if (window.NominalManager && NominalManager.isStepByStep) {
+                NominalManager.nextStep();
+                return;
+            }
+
+            // 2. Pan с десен или среден бутон
             if (e.button === 1 || e.button === 2) {
                 this.isDragging = true;
                 this.lastMouseX = e.clientX;
@@ -1701,34 +1732,59 @@ function exportSVG() {
         return;
     }
     
-    const w = GraphicsManager.bgImage.complete ? GraphicsManager.bgImage.width : 500;
-    const h = GraphicsManager.bgImage.complete ? GraphicsManager.bgImage.height : 500;
+    const w = GraphicsManager.bgImage.complete ? GraphicsManager.bgImage.width : 1000;
+    const h = GraphicsManager.bgImage.complete ? GraphicsManager.bgImage.height : 1000;
+    const isAnalysis = window.NominalManager && NominalManager.isSplitView;
     
     let svg = `<svg version="1.1" width="${w}" height="${h}" xmlns="http://www.w3.org/2000/svg">\n`;
-    svg += '<path d="';
     
-    GraphicsManager.paths.forEach(points => {
-        const n = points.length;
-        if (n < 2) return;
-        const isClosed = points[0].isClosed !== false;
-        
-        svg += `M ${points[0].x.toFixed(2)} ${points[0].y.toFixed(2)} `;
-        for (let i = 1; i < n; i++) {
-            svg += `L ${points[i].x.toFixed(2)} ${points[i].y.toFixed(2)} `;
+    const dumpPaths = (paths, color, opacity = 1.0, useStatus = false) => {
+        let res = "";
+        if (useStatus) {
+            let hitD = "", missD = "";
+            paths.forEach(pts => {
+                const n = pts.length;
+                if (n < 2) return;
+                const isClosed = pts[0].isClosed !== false;
+                for (let i = 0; i < n; i++) {
+                    if (!isClosed && i === 0) continue;
+                    const p2 = pts[i], p1 = pts[(i-1+n)%n];
+                    const segmentD = `M ${p1.x.toFixed(2)} ${p1.y.toFixed(2)} L ${p2.x.toFixed(2)} ${p2.y.toFixed(2)} `;
+                    if (p2.analysisStatus === 'hit') hitD += segmentD;
+                    else missD += segmentD;
+                }
+            });
+            if (hitD) res += `  <path d="${hitD}" stroke="#28a745" stroke-width="2" fill="none" />\n`;
+            if (missD) res += `  <path d="${missD}" stroke="#dc3545" stroke-width="2" fill="none" />\n`;
+        } else {
+            let d = "";
+            paths.forEach(pts => {
+                const n = pts.length;
+                if (n < 2) return;
+                const isClosed = pts[0].isClosed !== false;
+                d += `M ${pts[0].x.toFixed(2)} ${pts[0].y.toFixed(2)} `;
+                for (let i = 1; i < n; i++) d += `L ${pts[i].x.toFixed(2)} ${pts[i].y.toFixed(2)} `;
+                if (isClosed) d += 'Z ';
+            });
+            res += `  <path d="${d}" stroke="${color}" stroke-opacity="${opacity}" stroke-width="2" fill="none" />\n`;
         }
-        if (isClosed) {
-            svg += 'Z ';
-        }
-    });
+        return res;
+    };
+
+    if (isAnalysis) {
+        // Записваме САМО хармонизираните обекти (само един слой)
+        svg += dumpPaths(GraphicsManager.paths, "black", 1.0, true);
+    } else {
+        svg += dumpPaths(GraphicsManager.paths, "black", 1.0, false);
+    }
     
-    // Fill "evenodd" follows Potrace logic for nested loops, but using fill="none" matches the structural canvas wireframe view exactly
-    svg += '" stroke="black" stroke-width="2" fill="none" />\n</svg>';
+    svg += '</svg>';
     
     const blob = new Blob([svg], {type: "image/svg+xml;charset=utf-8"});
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = "vectorized_image.svg";
+    a.download = isAnalysis ? "harmonic_overlay_analysis.svg" : "vectorized_image.svg";
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
