@@ -49,6 +49,35 @@ const GraphicsManager = {
             this.redraw();
         }
     },
+
+    getSelectedSegmentDetails: function() {
+        if (this.selectedSegments.length !== 1) return null;
+        const sel = this.selectedSegments[0];
+        const path = this.paths[sel.pathIdx];
+        if (!path || sel.segIdx >= path.length) return null;
+        
+        const p1 = path[sel.segIdx];
+        const p2 = path[(sel.segIdx + 1) % path.length];
+        const dist = Math.sqrt(Math.pow(p2.x - p1.x, 2) + Math.pow(p2.y - p1.y, 2));
+        
+        return {
+            pathIdx: sel.pathIdx,
+            segIdx: sel.segIdx,
+            length: dist
+        };
+    },
+
+    applyGlobalScaling: function(factor) {
+        if (!this.paths) return;
+        this.paths.forEach(path => {
+            path.forEach(pt => {
+                pt.x *= factor;
+                pt.y *= factor;
+            });
+        });
+        this.saveState();
+        this.redraw();
+    },
     isDragging: false,
     isBoxSelecting: false,
     boxSelectStart: {x: 0, y: 0},

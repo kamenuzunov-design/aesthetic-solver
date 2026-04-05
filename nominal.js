@@ -2,6 +2,27 @@
  * Nominal Analysis & Aesthetic Harmonization Module (Hierarchical)
  */
 
+const GeometryUtils = {
+    getDistance: (p1, p2) => Math.sqrt(Math.pow(p2.x - p1.x, 2) + Math.pow(p2.y - p1.y, 2)),
+    getCentroid: (path) => {
+        if (!path || path.length === 0) return { x: 0, y: 0 };
+        let x = 0, y = 0;
+        path.forEach(p => { x += p.x; y += p.y; });
+        return { x: x / path.length, y: y / path.length };
+    },
+    getAngleBetween: (p1, p2, p3) => {
+        const v1 = { x: p1.x - p2.x, y: p1.y - p2.y };
+        const v2 = { x: p3.x - p2.x, y: p3.y - p2.y };
+        const mag1 = Math.sqrt(v1.x * v1.x + v1.y * v1.y);
+        const mag2 = Math.sqrt(v2.x * v2.x + v2.y * v2.y);
+        if (mag1 < 0.0001 || mag2 < 0.0001) return 0;
+        const dot = v1.x * v2.x + v1.y * v2.y;
+        let cos = dot / (mag1 * mag2);
+        cos = Math.max(-1, Math.min(1, cos));
+        return Math.acos(cos);
+    }
+};
+
 const NominalManager = {
     nominalValue: 0,
     nominalUnit: 'mm',
@@ -251,8 +272,121 @@ const NominalManager = {
             GraphicsManager.imgOpacity = 0;
         }
 
+        this.setupSplitViewRedraw();
+        this.isSplitView = true;
+        
         document.getElementById('ui-analysis-status').style.display = 'block';
         this.nextStep();
+    },
+
+    setupSplitViewRedraw: function() {
+        if (this._redrawInjected) return;
+        this._redrawInjected = true;
+        
+        const self = this;
+        const originalRedraw = GraphicsManager.redraw.bind(GraphicsManager);
+        
+        GraphicsManager.redraw = function() {
+            if (!self.isSplitView) {
+                originalRedraw();
+                return;
+            }
+            
+            const ctx = GraphicsManager.ctx;
+            const canvas = GraphicsManager.canvas;
+            if (!ctx || !canvas) return;
+            
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            const w = canvas.width / 3;
+            const h = canvas.height;
+            
+            // 1. Original
+            ctx.save();
+            ctx.rect(0, 0, w, h);
+            ctx.clip();
+            self.drawLabel(ctx, 10, 25, self.getT('ui-analysis-original'));
+            self.drawModel(ctx, self.originalPaths, 0, 0, w, h);
+            ctx.restore();
+            
+            // 2. Overlay
+            ctx.save();
+            ctx.translate(w, 0);
+            ctx.rect(0, 0, w, h);
+            ctx.clip();
+            self.drawLabel(ctx, 10, 25, self.getT('ui-analysis-overlay'));
+            self.drawModel(ctx, self.originalPaths, 0, 0, w, h, 'rgba(200,200,200,0.3)');
+            self.drawModel(ctx, GraphicsManager.paths, 0, 0, w, h);
+            ctx.restore();
+            
+            // 3. Harmonized
+            ctx.save();
+            ctx.translate(2 * w, 0);
+            ctx.rect(0, 0, w, h);
+            ctx.clip();
+            self.drawLabel(ctx, 10, 25, self.getT('ui-analysis-harmonized'));
+            self.drawModel(ctx, GraphicsManager.paths, 0, 0, w, h);
+            
+            ctx.fillStyle = "#2c3e50";
+            ctx.font = "bold 13px Arial";
+            ctx.fillText(`${self.getT('ui-harmony-score')}: ${self.harmonyScore}%`, 10, h - 15);
+            ctx.restore();
+            
+            // Grid/Separators
+            ctx.strokeStyle = "#ddd";
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(w, 0); ctx.lineTo(w, h);
+            ctx.moveTo(w*2, 0); ctx.lineTo(w*2, h);
+            ctx.stroke();
+        };
+    },
+
+    drawLabel: function(ctx, x, y, text) {
+        ctx.fillStyle = "rgba(44, 62, 80, 0.8)";
+        ctx.font = "bold 11px Arial";
+        ctx.fillText(text, x, y);
+    },
+
+    drawModel: function(ctx, paths, ox, oy, w, h, overrideColor) {
+        if (!paths || paths.length === 0) return;
+        
+        ctx.save();
+        // Scale to fit the 1/3 panel (with 80% enlargement boost)
+        const bbox = this.getPathsBBox(paths);
+        const scale = Math.min(w / bbox.width, h / bbox.height) * 0.8;
+        
+        ctx.translate(w/2, h/2);
+        ctx.scale(scale, scale);
+        ctx.translate(-(bbox.x + bbox.width/2), -(bbox.y + bbox.height/2));
+        
+        paths.forEach((path, pIdx) => {
+            ctx.beginPath();
+            ctx.moveTo(path[0].x, path[0].y);
+            for (let i = 1; i < path.length; i++) ctx.lineTo(path[i].x, path[i].y);
+            
+            if (overrideColor) {
+                ctx.strokeStyle = overrideColor;
+            } else {
+                ctx.strokeStyle = (GraphicsManager.highlightedSegment && GraphicsManager.highlightedSegment.pathIdx === pIdx) ? "#e74c3c" : "#3498db";
+            }
+            
+            ctx.lineWidth = 2 / scale;
+            ctx.stroke();
+        });
+        ctx.restore();
+    },
+
+    getPathsBBox: function(paths) {
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        paths.forEach(path => {
+            path.forEach(p => {
+                minX = Math.min(minX, p.x); minY = Math.min(minY, p.y);
+                maxX = Math.max(maxX, p.x); maxY = Math.max(maxY, p.y);
+            });
+        });
+        if (minX === Infinity) return { x:0, y:0, width:1, height:1 };
+        return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
     },
 
     generatePreferredSeries: function(nom, ratio) {
