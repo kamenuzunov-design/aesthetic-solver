@@ -209,6 +209,7 @@
   "ui-step-scaling": "Scaling the object to the Nominal...",
   "ui-step-segment": "Harmonizing segment {idx}: {val}{unit} (was: {old}{unit})",
   "ui-step-closure": "Correcting polyline closure...",
-  "ui-step-finished": "Harmonization finished! Harmony: {score}%",
-  "ui-step-click-next": "Click on the drawing field for next step"
+  "ui-step-finished": "Harmonization finished! Harmony score: {score}%",
+  "ui-step-click-next": "Click on the status field for next step",
+  "ui-alert-select-segment": "Please select exactly one segment (use the segment edit tool)."
 }

@@ -82,7 +82,8 @@ const NominalManager = {
         "ui-step-segment": "Хармонизиране на сегмент {idx}: {val}{unit} (преди: {old}{unit})",
         "ui-step-closure": "Коригиране на затварянето на полилинията...",
         "ui-step-finished": "Хармонизацията завърши! Хармоничност: {score}%",
-        "ui-step-click-next": "Кликнете върху полето за следваща стъпка"
+        "ui-step-click-next": "Кликнете върху полето за следваща стъпка",
+        "ui-alert-select-segment": "Моля, изберете само един сегмент (използвайте инструмента за редактиране на сегменти)."
     },
 
     init: function() {
@@ -104,8 +105,9 @@ const NominalManager = {
     },
 
     showNominalDialog: function() {
-        if (GraphicsManager.selectedPaths.length === 0) {
-            alert(this.getT("ui-alert-select-path") || "Моля, изберете обект.");
+        const seg = GraphicsManager.getSelectedSegmentDetails();
+        if (!seg) {
+            alert(this.getT("ui-alert-select-segment") || "Моля, изберете само един сегмент.");
             return;
         }
         document.getElementById('ui-questionnaire-dialog').style.display = 'none';
@@ -142,12 +144,25 @@ const NominalManager = {
         this.nominalUnit = document.getElementById('nominal-unit').value;
         this.nominalType = document.getElementById('nominal-type').value;
 
-        const bbox = this.getSelectedBBox();
-        let pxSize = (this.nominalType === 'width') ? bbox.width : (this.nominalType === 'height' ? bbox.height : this.getPathLength(GraphicsManager.paths[GraphicsManager.selectedPaths[0]]));
+        // NEW: Get current segment length for scaling
+        const seg = GraphicsManager.getSelectedSegmentDetails();
+        if (!seg) return;
+
+        // Calculate Scale Factor (Nominal / Pixel Length)
+        this.pxToUnitRatio = this.nominalValue / seg.length;
         
-        this.pxToUnitRatio = this.nominalValue / pxSize;
+        // 1. Transform all project coordinates
+        this.originalPaths = JSON.parse(JSON.stringify(GraphicsManager.paths));
+        GraphicsManager.applyGlobalScaling(this.pxToUnitRatio);
+        this.pxToUnitRatio = 1.0; // After scaling, units = pixels
+
+        // 2. Generate Preferred Series (III RPCH - 1.122)
+        this.generatePreferredSeries(this.nominalValue, 1.122);
+
         this.closeNominalDialog();
-        this.showQuestionnaire();
+        
+        // Skip questionnaire for now
+        this.performAnalysis();
     },
 
     getSelectedBBox: function() {
@@ -210,17 +225,12 @@ const NominalManager = {
 
     performAnalysis: function() {
         this.answers = {};
-        document.querySelectorAll('#questionnaire-content input:checked').forEach(i => this.answers[i.name] = i.value);
-        
-        const best = this.findBestSystem();
-        const optEl = document.getElementById(`opt-${best.id_key}`);
-        this.detectedSystemName = optEl ? optEl.innerText : best.name;
-        
-        // --- NEW: Generate harmonized series as INTEGERS relative to FIXED nominal ---
-        const series = AestheticSolver.generateColumn(this.nominalValue, best.val, "Analysis");
-        this.preferredSeries = series.filter(v => typeof v === 'number').map(v => Math.round(v));
+        // Bypassing active inputs from survey for now
         
         this.originalPaths = JSON.parse(JSON.stringify(GraphicsManager.paths));
+        
+        // Structured Model Generation (Phase A & B)
+        this.structuredModel = this.generateStructuredModel();
         
         this.isStepByStep = true;
         this.stepQueue = [];
@@ -229,7 +239,6 @@ const NominalManager = {
         this.totalSegments = 0;
         this.hits = 0;
 
-        this.preProcessGraphics();
         this.buildStepQueue();
         
         document.getElementById('ui-questionnaire-dialog').style.display = 'none';
@@ -246,26 +255,175 @@ const NominalManager = {
         this.nextStep();
     },
 
-    buildStepQueue: function() {
-        const isCorrection = this.answers['ui-q3'] === 'ui-q3-o3';
-        this.stepQueue.push({ type: 'init', desc: this.getT('ui-step-init') });
+    generatePreferredSeries: function(nom, ratio) {
+        this.preferredSeries = [];
+        const MIN = 1;
+        const MAX = 1000;
+        
+        // Reference point: nominal
+        this.preferredSeries.push(Math.round(nom));
 
-        GraphicsManager.paths.forEach((path, pIdx) => {
-            const n = path.length;
-            if (n < 2) return;
+        // Downward
+        let currentDown = nom;
+        while (currentDown > MIN) {
+            currentDown /= ratio;
+            this.preferredSeries.push(Math.round(currentDown));
+        }
 
-            for (let i = 1; i < n; i++) {
-                this.stepQueue.push({ 
-                    type: 'segment', 
-                    pathIdx: pIdx, 
-                    segIdx: i, 
-                    desc: this.getT('ui-step-segment').replace('{idx}', i)
+        // Upward
+        let currentUp = nom;
+        while (currentUp < MAX) {
+            currentUp *= ratio;
+            this.preferredSeries.push(Math.round(currentUp));
+        }
+
+        // Final polishing
+        this.preferredSeries = [...new Set(this.preferredSeries)]
+            .filter(v => v >= MIN && v <= MAX)
+            .sort((a, b) => a - b);
+
+        console.log("Calculated Preferred Series (1.122):", this.preferredSeries);
+    },
+
+    generateStructuredModel: function() {
+        // Filter out empty or invalid paths to prevent crashes
+        const paths = GraphicsManager.paths.filter(p => p && p.length > 0);
+        let bbox;
+        if (GraphicsManager.selectedPaths.length > 0) {
+            bbox = this.getSelectedBBox();
+        } else {
+            bbox = { width: 0, height: 0 };
+            paths.forEach(p => {
+                const b = GeometryUtils.getBBox(p);
+                bbox.width = Math.max(bbox.width, b.width);
+                bbox.height = Math.max(bbox.height, b.height);
+            });
+        }
+        const nominalArea = bbox.width * bbox.height || 10000;
+        const noiseThreshold = 0.02 * nominalArea;
+
+        let contours = paths.map((p, idx) => {
+            const bbox = GeometryUtils.getBBox(p);
+            const centroid = GeometryUtils.getCentroid(p);
+            const area = this.getPathArea(p);
+            const isClosed = p[0].isClosed !== false;
+
+            let segments = [];
+            for (let i = 0; i < p.length; i++) {
+                if (!isClosed && i === 0) continue;
+                const p1 = p[(i - 1 + p.length) % p.length];
+                const p2 = p[i];
+                const p3 = p[(i + 1) % p.length];
+                
+                segments.push({
+                    id: `S_${idx}_${i}`,
+                    type: "line",
+                    start: { x: p1.x, y: p1.y },
+                    end: { x: p2.x, y: p2.y },
+                    length: GeometryUtils.getDistance(p1, p2),
+                    angle_to_next: isClosed || i < p.length - 1 ? GeometryUtils.getAngleBetween(p1, p2, p3) : 0,
+                    relations: GraphicsManager.relations.filter(r => r.pathIdx === idx && r.segIdx === i)
                 });
             }
 
-            if (path[0].isClosed !== false) {
-                this.stepQueue.push({ type: 'closure', pathIdx: pIdx, desc: this.getT('ui-step-closure') });
+            return {
+                id: `C_${idx}`,
+                figure_type: "unknown",
+                is_closed: isClosed,
+                centroid: centroid,
+                bounding_box: bbox,
+                area: area,
+                is_noise: area < noiseThreshold,
+                is_meta_group: false,
+                segments: segments,
+                original_index: idx
+            };
+        });
+
+        // Phase A: Noise & Grouping
+        contours = this.processPhaseA(contours);
+
+        // Phase B: Qualification
+        contours.forEach(c => {
+            if (!c.is_noise) c.figure_type = this.qualifyFigure(c);
+        });
+
+        return contours;
+    },
+
+    processPhaseA: function(contours) {
+        // Grouping (Pattern Recognition)
+        // Simple heuristic: similar area and segment count at regular intervals
+        for (let i = 0; i < contours.length; i++) {
+            if (contours[i].is_meta_group || contours[i].is_noise) continue;
+            let group = [contours[i]];
+            for (let j = i + 1; j < contours.length; j++) {
+                if (contours[j].is_meta_group || contours[j].is_noise) continue;
+                
+                const areaDiff = Math.abs(contours[i].area - contours[j].area) / contours[i].area;
+                const segDiff = Math.abs(contours[i].segments.length - contours[j].segments.length);
+                
+                if (areaDiff < 0.05 && segDiff === 0) {
+                    group.push(contours[j]);
+                }
             }
+            if (group.length >= 3) {
+                group.forEach(c => c.is_meta_group = true);
+            }
+        }
+        return contours;
+    },
+
+    qualifyFigure: function(c) {
+        const n = c.segments.length;
+        if (n === 0) return "unknown";
+
+        // Test for Rectangle (4 segments, ~90 deg angles)
+        if (n === 4 && c.is_closed) {
+            const all90 = c.segments.every(s => Math.abs(s.angle_to_next - 90) < 5 || Math.abs(s.angle_to_next - 270) < 5);
+            if (all90) return "rectangle";
+        }
+
+        // Test for Circle (many segments, constant distance to centroid)
+        if (n > 8 && c.is_closed) {
+            const dists = c.segments.map(s => GeometryUtils.getDistance(s.end, c.centroid));
+            const avgDist = dists.reduce((a, b) => a + b, 0) / n;
+            const isCircle = dists.every(d => Math.abs(d - avgDist) / avgDist < 0.02);
+            if (isCircle) return "circle";
+        }
+
+        // Test for Arc (open, constant angle_to_next)
+        if (!c.is_closed && n > 3) {
+            const angles = c.segments.slice(0, -1).map(s => s.angle_to_next);
+            const avgAngle = angles.reduce((a, b) => a + b, 0) / angles.length;
+            const isArc = angles.every(a => Math.abs(a - avgAngle) < 2 && a > 90); // simple blunt angle check
+            if (isArc) return "arc";
+        }
+
+        return "unknown";
+    },
+
+    buildStepQueue: function() {
+        this.stepQueue.push({ type: 'init', desc: this.getT('ui-step-init') });
+
+        // Phase 1: Nominal Polyline
+        const seg = GraphicsManager.getSelectedSegmentDetails();
+        const nominalIdx = seg ? seg.pathIdx : -1;
+        
+        if (nominalIdx !== -1) {
+            const c = this.structuredModel.find(m => m.original_index === nominalIdx);
+            if (c) {
+                this.stepQueue.push({ type: 'poly-harmonize', contourId: c.id, desc: "Harmonizing primary polyline (Nominal)..." });
+            }
+        }
+
+        // Phase 2: Other polylines by size
+        const sorted = [...this.structuredModel]
+            .filter(c => !c.is_noise && c.original_index !== nominalIdx)
+            .sort((a, b) => b.area - a.area);
+
+        sorted.forEach(c => {
+            this.stepQueue.push({ type: 'poly-harmonize', contourId: c.id, desc: `Harmonizing polyline ${c.id}...` });
         });
 
         this.stepQueue.push({ type: 'finish', desc: '' });
@@ -283,35 +441,11 @@ const NominalManager = {
             statusText.innerText = step.desc;
         } 
         else if (step.type === 'segment') {
-            const path = GraphicsManager.paths[step.pathIdx];
-            const p1 = path[step.segIdx - 1], p2 = path[step.segIdx];
-            const unitLen = Math.hypot(p2.x - p1.x, p2.y - p1.y) * this.pxToUnitRatio;
-            const closest = this.getClosestInSeries(unitLen);
-            const tol = 0.02;
-
-            const oldVal = Math.round(unitLen);
-            const newVal = closest;
-
-            if (Math.abs(unitLen - closest) / closest <= tol) {
-                p2.analysisStatus = 'hit';
-                this.hits++;
-            } else {
-                p2.analysisStatus = 'miss';
-                if (isCorrection) {
-                    let ang = Math.atan2(p2.y - p1.y, p2.x - p1.x);
-                    const targetPx = closest / this.pxToUnitRatio;
-                    [0, Math.PI/2, Math.PI, -Math.PI/2, Math.PI/4, -Math.PI/4].forEach(target => {
-                        if (Math.abs(ang - target) < 0.08) ang = target;
-                    });
-
-                    p2.x = p1.x + Math.cos(ang) * targetPx;
-                    p2.y = p1.y + Math.sin(ang) * targetPx;
-                }
-            }
-            this.totalSegments++;
-            // Note: Replacement of {unit} twice for simplicity in string replacement
-            statusText.innerText = step.desc.replace('{val}', newVal).replace('{old}', oldVal).replaceAll('{unit}', this.nominalUnit);
-            GraphicsManager.highlightedSegment = { pathIdx: step.pathIdx, segIdx: step.segIdx };
+            // Deprecated for poly-harmonize but left for partial compatibility
+        }
+        else if (step.type === 'poly-harmonize') {
+            statusText.innerText = step.desc;
+            this.harmonizePolylineRelativeToCenter(step.contourId);
         }
         else if (step.type === 'closure') {
             const path = GraphicsManager.paths[step.pathIdx];
@@ -477,6 +611,44 @@ const NominalManager = {
         return { minX: minX, minY: minY, maxX: maxX, maxY: maxY, width: maxX - minX, height: maxY - minY };
     },
 
+    harmonizePolylineRelativeToCenter: function(contourId) {
+        const c = this.structuredModel.find(m => m.id === contourId);
+        if (!c) return;
+
+        const path = GraphicsManager.paths[c.original_index];
+        if (!path || path.length === 0) return;
+
+        const oldCentroid = GeometryUtils.getCentroid(path);
+        
+        // 1. Scaled nodes relative to centroid
+        // (Actually, user said harmonize all segments)
+        // We will scale distances to nodes from centroid to preferred series?
+        // NO, user said "хармонизираме всички сегменти". 
+        // This means we snap segment lengths while keeping the centroid fixed.
+
+        for (let i = 1; i < path.length; i++) {
+            const p1 = path[i-1], p2 = path[i];
+            const currentLen = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+            const targetLen = this.getClosestInSeries(currentLen);
+            
+            if (targetLen !== currentLen) {
+                const ratio = targetLen / currentLen;
+                const ang = Math.atan2(p2.y - p1.y, p2.x - p1.x);
+                p2.x = p1.x + Math.cos(ang) * targetLen;
+                p2.y = p1.y + Math.sin(ang) * targetLen;
+            }
+            p2.analysisStatus = (Math.abs(currentLen - targetLen) < 1) ? 'hit' : 'miss';
+        }
+
+        // 2. Re-center the polyline
+        const newCentroid = GeometryUtils.getCentroid(path);
+        const dx = oldCentroid.x - newCentroid.x;
+        const dy = oldCentroid.y - newCentroid.y;
+        path.forEach(p => { p.x += dx; p.y += dy; });
+        
+        GraphicsManager.redraw();
+    },
+
     getPathArea: function(path) {
         if (path.length < 3) return 0;
         let area = 0;
@@ -585,7 +757,37 @@ const NominalManager = {
         // ... (can be extended to check distances between all top-level objects)
     },
 
+    processPhaseC: function(contourId) {
+        const current = this.structuredModel.find(c => c.id === contourId);
+        if (!current) return;
+        
+        const tol = 0.02 * this.nominalValue;
+        
+        this.structuredModel.forEach(other => {
+            if (other.id === current.id || other.is_noise) return;
+            
+            // Vertical gap
+            const vGap = Math.abs(current.bounding_box.y - (other.bounding_box.y + other.bounding_box.height));
+            const vGapUnits = vGap * this.pxToUnitRatio;
+            const closestV = this.getClosestInSeries(vGapUnits);
+            
+            if (Math.abs(vGapUnits - closestV) < tol) {
+                // Harmonic gap detected
+            }
+            
+            // Horizontal gap
+            const hGap = Math.abs(current.bounding_box.x - (other.bounding_box.x + other.bounding_box.width));
+            const hGapUnits = hGap * this.pxToUnitRatio;
+            const closestH = this.getClosestInSeries(hGapUnits);
+            
+            if (Math.abs(hGapUnits - closestH) < tol) {
+                // Harmonic gap detected
+            }
+        });
+    },
+
     clusterPaths: function(indices, threshold) {
+        // ... (existing clustering)
         let clusters = [];
         let visited = new Set();
         

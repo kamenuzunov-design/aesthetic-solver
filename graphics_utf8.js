@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Aesthetic Solver - ╨ô╤Ç╨░╤ä╨╕╤ç╨╡╨╜ ╨╝╨╛╨┤╤â╨╗ (graphics.js)
  * Potrace ╨╕╨╜╤é╨╡╨│╤Ç╨░╤å╨╕╤Å, ╨░╨▓╤é╨╛╨╝╨░╤é╨╕╤ç╨╜╨╛ ╨▓╨╡╨║╤é╨╛╤Ç╨╕╨╖╨╕╤Ç╨░╨╜╨╡ ╨╕ ╨╝╨░╤ë╨░╨▒╨╕╤Ç╨░╨╜╨╡
  */
@@ -1509,134 +1509,21 @@ const GraphicsManager = {
         this.redraw();
     },
 
-    ensureIDs: function() {
-        if (!this.paths) return;
-        this.paths.forEach((path, i) => {
-            if (!path.id) path.id = "C_" + Math.random().toString(36).substring(2, 8);
-            path.forEach((pt, j) => {
-                if (!pt.id) pt.id = "N_" + Math.random().toString(36).substring(2, 8);
-            });
-        });
-    },
-
-    parseSVGPath: function(d) {
-        const commands = d.match(/[A-Za-z]|[+-]?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?/g);
-        if (!commands) return null;
-        const pts = [];
-        let i = 0;
-        let isClosed = false;
-        while (i < commands.length) {
-            const cmd = commands[i];
-            if (cmd.toUpperCase() === 'Z') {
-                isClosed = true;
-                i++;
-            } else if (cmd.toUpperCase() === 'M' || cmd.toUpperCase() === 'L') {
-                i++;
-                const x = parseFloat(commands[i++]);
-                const y = parseFloat(commands[i++]);
-                if (!isNaN(x) && !isNaN(y)) pts.push({ x, y });
-            } else {
-                // Unrecognized or implicit repetition (simplified parser)
-                if (!isNaN(parseFloat(cmd))) {
-                    const x = parseFloat(commands[i++]);
-                    const y = parseFloat(commands[i++]);
-                    if (!isNaN(x) && !isNaN(y)) pts.push({ x, y });
-                } else {
-                    i++;
-                }
-            }
-        }
-        if (pts.length > 0 && !isClosed) pts[0].isClosed = false;
-        return pts;
-    },
-
     saveProject: function() {
         if (!this.projectName) {
-            const msg = (window.Lang && window.Lang["ui-prompt-project-name"]) || "Моля, въведете име на проекта:";
+            const msg = (window.Lang && window.Lang["ui-prompt-project-name"]) || "╨£╨╛╨╗╤Å, ╨▓╤è╨▓╨╡╨┤╨╡╤é╨╡ ╨╕╨╝╨╡ ╨╜╨░ ╨┐╤Ç╨╛╨╡╨║╤é╨░:";
             const name = prompt(msg, "New Design");
             if (!name) return;
             this.projectName = name;
         }
 
-        this.ensureIDs();
-
-        const contours = this.paths.map((path, pathIdx) => {
-            const isClosed = path[0].isClosed !== false;
-            let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-            let cx = 0, cy = 0;
-            
-            const nodes = path.map(pt => {
-                if (pt.x < minX) minX = pt.x;
-                if (pt.y < minY) minY = pt.y;
-                if (pt.x > maxX) maxX = pt.x;
-                if (pt.y > maxY) maxY = pt.y;
-                cx += pt.x;
-                cy += pt.y;
-                return { id: pt.id, x: pt.x, y: pt.y };
-            });
-            
-            const numNodes = path.length;
-            if (numNodes > 0) { cx /= numNodes; cy /= numNodes; }
-            
-            const segments = [];
-            for (let i = 0; i < numNodes; i++) {
-                if (!isClosed && i === numNodes - 1) break;
-                const nextI = (i + 1) % numNodes;
-                const p1 = path[i];
-                const p2 = path[nextI];
-                const dx = p2.x - p1.x;
-                const dy = p2.y - p1.y;
-                const length = Math.hypot(dx, dy);
-                let angle = Math.atan2(dy, dx) * 180 / Math.PI;
-                if (angle < 0) angle += 360;
-                
-                const segRels = this.relations.filter(r => r.pathIdx === pathIdx && r.segIdx === i).map(r => {
-                    const targetPath = this.paths[r.targetPathIdx];
-                    const targetId = targetPath ? `S_${targetPath.id}_${r.targetSegIdx}` : null;
-                    const res = { type: r.type };
-                    if (targetId) res.target_id = targetId;
-                    return res;
-                });
-                
-                segments.push({
-                    id: `S_${path.id}_${i}`,
-                    type: "line",
-                    startNodeId: p1.id,
-                    endNodeId: p2.id,
-                    length: length,
-                    angle_to_next: angle,
-                    relations: segRels.length > 0 ? segRels : undefined
-                });
-            }
-
-            return {
-                id: path.id,
-                figure_type: "polygon",
-                is_closed: isClosed,
-                centroid: { x: cx, y: cy },
-                bounding_box: { x: minX, y: minY, width: maxX - minX, height: maxY - minY },
-                nodes: nodes,
-                segments: segments
-            };
-        });
-
-        let scale = 1.0;
-        let nominalValue = 100.0;
-        if (window.NominalManager && NominalManager.pxToUnitRatio) {
-            scale = NominalManager.pxToUnitRatio;
-        }
-
         const projectData = {
-            version: "2.0",
+            version: "1.0",
             projectName: this.projectName,
-            project_metadata: {
-                nominal_value: nominalValue,
-                tolerance: 0.02,
-                scale: scale
-            },
             imageFileName: this.imageFileName,
             imageData: this.bgImage.src.startsWith('data:') ? this.bgImage.src : null,
-            contours: contours
+            paths: this.paths,
+            relations: this.relations
         };
 
         const blob = new Blob([JSON.stringify(projectData, null, 2)], { type: "application/json" });
@@ -1650,114 +1537,48 @@ const GraphicsManager = {
         URL.revokeObjectURL(url);
     },
 
-    loadProjectData: function(fileContent) {
+    loadProjectData: function(jsonString) {
         try {
+            const data = JSON.parse(jsonString);
+            if (!data.paths) throw new Error("Invalid project file");
+
+            // ╨ƒ╤è╤Ç╨▓╨╛ ╨╕╨╖╤ç╨╕╤ü╤é╨▓╨░╨╝╨╡ ╨▓╤ü╨╕╤ç╨║╨╛
             this.clearCanvas();
-            const trimmed = fileContent.trim();
-            
-            if (trimmed.startsWith('<svg') || trimmed.startsWith('<?xml')) {
-                // Legacy SVG parser
-                const parser = new DOMParser();
-                const doc = parser.parseFromString(trimmed, "image/svg+xml");
-                
-                const imgNode = doc.querySelector('image');
-                if (imgNode) {
-                    const href = imgNode.getAttribute('href') || imgNode.getAttribute('xlink:href');
-                    if (href) {
-                        this.bgImage.onload = () => { this.resize(); this.redraw(); };
-                        this.bgImage.src = href;
-                    }
-                } else {
+
+            this.paths = data.paths || [];
+            this.relations = data.relations || [];
+            this.projectName = data.projectName || null;
+            this.imageFileName = data.imageFileName || null;
+
+            if (data.imageData) {
+                this.bgImage.onload = () => {
                     this.resize();
                     this.redraw();
-                }
-                
-                this.paths = [];
-                this.relations = [];
-                const pathNodes = doc.querySelectorAll('path');
-                pathNodes.forEach(pathNode => {
-                    const d = pathNode.getAttribute('d');
-                    if (d) {
-                        const parsed = this.parseSVGPath(d);
-                        if (parsed && parsed.length > 0) {
-                            this.paths.push(parsed);
-                        }
-                    }
-                });
-                
-                this.projectName = "Legacy SVG Project";
-                this.imageFileName = "Unknown (SVG Embedded)";
-                
+                };
+                this.bgImage.src = data.imageData;
             } else {
-                // JSON parser
-                const data = JSON.parse(trimmed);
-                this.projectName = data.projectName || null;
-                this.imageFileName = data.imageFileName || null;
-                
-                if (data.version === "2.0" && data.contours) {
-                    // Load 2.0 format
-                    this.paths = data.contours.map(c => {
-                        const pts = c.nodes.map(n => ({ x: n.x, y: n.y, id: n.id }));
-                        pts.id = c.id;
-                        if (!c.is_closed) pts[0].isClosed = false;
-                        return pts;
-                    });
-                    
-                    this.relations = [];
-                    data.contours.forEach((c, cIdx) => {
-                        if (c.segments) {
-                            c.segments.forEach((s, sIdx) => {
-                                if (s.relations) {
-                                    s.relations.forEach(r => {
-                                        if (r.target_id) {
-                                            const parts = r.target_id.split('_');
-                                            if (parts.length >= 4 && parts[0] === 'S' && parts[1] === 'C') {
-                                                const tPathId = parts[1] + '_' + parts[2];
-                                                const tSegIdx = parseInt(parts[3]);
-                                                const tPathIdx = this.paths.findIndex(p => p.id === tPathId);
-                                                if (tPathIdx !== -1) {
-                                                    this.relations.push({
-                                                        type: r.type,
-                                                        pathIdx: cIdx,
-                                                        segIdx: sIdx,
-                                                        targetPathIdx: tPathIdx,
-                                                        targetSegIdx: tSegIdx
-                                                    });
-                                                }
-                                            }
-                                        }
-                                    });
-                                }
-                            });
-                        }
-                    });
-                } else if (data.paths) {
-                    // Load 1.0 format
-                    this.paths = data.paths;
-                    this.relations = data.relations || [];
-                } else {
-                    throw new Error("Invalid project JSON data");
-                }
-                
-                if (data.imageData) {
-                    this.bgImage.onload = () => { this.resize(); this.redraw(); };
-                    this.bgImage.src = data.imageData;
-                } else {
-                    this.resize();
-                    this.redraw();
-                }
+                this.resize();
+                this.redraw();
             }
 
             this.selectedPaths = [];
             this.activePathIdx = -1;
             this.selectedNodes = [];
             this.selectedSegments = [];
-            this.ensureIDs();
+
+            if (this.imageFileName) {
+                const msg = (window.Lang && window.Lang["bg"] === "bg") ? 
+                    `╨ƒ╤Ç╨╛╨╡╨║╤é╤è╤é ╨╕╨╖╨╕╤ü╨║╨▓╨░ ╨╕╨╖╨╛╨▒╤Ç╨░╨╢╨╡╨╜╨╕╨╡: ${this.imageFileName}. ╨É╨║╨╛ ╨╜╨╡ ╤ü╨╡ ╨╖╨░╤Ç╨╡╨┤╨╕ ╨░╨▓╤é╨╛╨╝╨░╤é╨╕╤ç╨╜╨╛, ╨╝╨╛╨╗╤Å ╨╕╨╖╨▒╨╡╤Ç╨╡╤é╨╡ ╨│╨╛ ╤Ç╤è╤ç╨╜╨╛.` :
+                    `Project requires image: ${this.imageFileName}. If it doesn't load automatically, please select it manually.`;
+                console.log(msg);
+                // ╨Æ ╨▒╤Ç╨░╤â╨╖╤è╤Ç╨░ ╨╜╨╡ ╨╝╨╛╨╢╨╡╨╝ ╨┤╨░ ╨╖╨░╤Ç╨╡╨┤╨╕╨╝ ╨░╨▓╤é╨╛╨╝╨░╤é╨╕╤ç╨╜╨╛ ╤ä╨░╨╣╨╗ ╨╛╤é ╨┤╨╕╤ü╨║ ╨┐╨╛ ╨╕╨╝╨╡ ╨▒╨╡╨╖ ╨┐╨╛╤é╤Ç╨╡╨▒╨╕╤é╨╡╨╗╤ü╨║╨╛ ╨┤╨╡╨╣╤ü╤é╨▓╨╕╨╡,
+                // ╨╖╨░╤é╨╛╨▓╨░ ╨┐╤Ç╨╛╤ü╤é╨╛ ╨╕╨╜╤ä╨╛╤Ç╨╝╨╕╤Ç╨░╨╝╨╡ ╨╕╨╗╨╕ ╨╛╤ü╤é╨░╨▓╤Å╨╝╨╡ ╨┐╤Ç╨░╨╖╨╡╨╜ ╤ä╨╛╨╜.
+            }
             
             this.redraw();
         } catch (e) {
-            console.error("Грешка при зареждане на файла:", e);
-            alert("Грешка при зареждане на проекта!");
+            console.error("╨ô╤Ç╨╡╤ê╨║╨░ ╨┐╤Ç╨╕ ╨╖╨░╤Ç╨╡╨╢╨┤╨░╨╜╨╡ ╨╜╨░ ╨┐╤Ç╨╛╨╡╨║╤é╨░:", e);
+            alert("╨ô╤Ç╨╡╤ê╨║╨░ ╨┐╤Ç╨╕ ╨╖╨░╤Ç╨╡╨╢╨┤╨░╨╜╨╡ ╨╜╨░ ╨┐╤Ç╨╛╨╡╨║╤é╨░!");
         }
     }
 };
