@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="bg">
 <head>
     <meta charset="UTF-8">
@@ -11,21 +11,21 @@
 <body>
 	<div id="ui-connect-dialog" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9999; justify-content: center; align-items: center; backdrop-filter: blur(2px);">
 		<div style="background: white; padding: 25px; border-radius: 8px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); text-align: center; max-width: 400px; border: 1px solid #ccc;">
-			<p id="ui-connect-prompt" style="margin-top:0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-size: 18px; color: #333; font-weight: 500;">Ð˜ÑÐºÐ°Ñ‚Ðµ Ð»Ð¸ Ð´Ð° ÑÐ²ÑŠÑ€Ð¶ÐµÑ‚Ðµ Ð´Ð²ÐµÑ‚Ðµ Ð¿Ð¾Ð»Ð¸Ð»Ð¸Ð½Ð¸Ð¸?</p>
+			<p id="ui-connect-prompt" style="margin-top:0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-size: 18px; color: #333; font-weight: 500;">Искате ли да свържете двете полилинии?</p>
 			<div style="margin-top: 25px; display: flex; justify-content: center; gap: 20px;">
-				<button id="ui-btn-yes" style="padding: 10px 30px; cursor: pointer; background: #0078d7; color: white; border: none; border-radius: 4px; font-size: 16px; font-weight: bold; min-width: 100px; transition: background 0.2s;">Ð”Ð°</button>
-				<button id="ui-btn-no" style="padding: 10px 30px; cursor: pointer; background: #e0e0e0; color: #333; border: 1px solid #ccc; border-radius: 4px; font-size: 16px; font-weight: bold; min-width: 100px; transition: background 0.2s;">ÐÐµ</button>
+				<button id="ui-btn-yes" style="padding: 10px 30px; cursor: pointer; background: #0078d7; color: white; border: none; border-radius: 4px; font-size: 16px; font-weight: bold; min-width: 100px; transition: background 0.2s;">Да</button>
+				<button id="ui-btn-no" style="padding: 10px 30px; cursor: pointer; background: #e0e0e0; color: #333; border: 1px solid #ccc; border-radius: 4px; font-size: 16px; font-weight: bold; min-width: 100px; transition: background 0.2s;">Не</button>
 			</div>
 		</div>
 	</div>
 
 	<div id="ui-save-before-load-dialog" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9999; justify-content: center; align-items: center; backdrop-filter: blur(2px);">
 		<div style="background: white; padding: 25px; border-radius: 8px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); text-align: center; max-width: 450px; border: 1px solid #ccc;">
-			<p id="ui-prompt-save-before-load" style="margin-top:0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-size: 18px; color: #333; font-weight: 500;">Ð˜Ð¼Ð°Ñ‚Ðµ Ñ‚ÐµÐºÑƒÑ‰ Ð¿Ñ€Ð¾ÐµÐºÑ‚ Ð½Ð° ÐµÐºÑ€Ð°Ð½Ð°. Ð˜ÑÐºÐ°Ñ‚Ðµ Ð»Ð¸ Ð´Ð° Ð³Ð¾ Ð·Ð°Ð¿Ð¸ÑˆÐµÑ‚Ðµ Ð¿Ñ€ÐµÐ´Ð¸ Ð´Ð° Ð·Ð°Ñ€ÐµÐ´Ð¸Ñ‚Ðµ Ð½Ð¾Ð²?</p>
+			<p id="ui-prompt-save-before-load" style="margin-top:0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-size: 18px; color: #333; font-weight: 500;">Имате текущ проект на екрана. Искате ли да го запишете преди да заредите нов?</p>
 			<div style="margin-top: 25px; display: flex; justify-content: center; gap: 15px; flex-wrap: wrap;">
-				<button id="ui-btn-save-confirm" style="padding: 10px 20px; cursor: pointer; background: #28a745; color: white; border: none; border-radius: 4px; font-size: 14px; font-weight: bold; min-width: 120px;">Ð”Ð°, Ð·Ð°Ð¿Ð¸ÑˆÐ¸</button>
-				<button id="ui-btn-dont-save" style="padding: 10px 20px; cursor: pointer; background: #dc3545; color: white; border: none; border-radius: 4px; font-size: 14px; font-weight: bold; min-width: 120px;">ÐÐµ, Ð¸Ð·Ñ‡Ð¸ÑÑ‚Ð¸</button>
-				<button id="ui-btn-cancel-load" style="padding: 10px 20px; cursor: pointer; background: #e0e0e0; color: #333; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; font-weight: bold; min-width: 100px;">ÐžÑ‚ÐºÐ°Ð·</button>
+				<button id="ui-btn-save-confirm" style="padding: 10px 20px; cursor: pointer; background: #28a745; color: white; border: none; border-radius: 4px; font-size: 14px; font-weight: bold; min-width: 120px;">Да, запиши</button>
+				<button id="ui-btn-dont-save" style="padding: 10px 20px; cursor: pointer; background: #dc3545; color: white; border: none; border-radius: 4px; font-size: 14px; font-weight: bold; min-width: 120px;">Не, изчисти</button>
+				<button id="ui-btn-cancel-load" style="padding: 10px 20px; cursor: pointer; background: #e0e0e0; color: #333; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; font-weight: bold; min-width: 100px;">Отказ</button>
 			</div>
 		</div>
 	</div>
@@ -93,13 +93,13 @@
                 <img src="images/bg_flag.png" alt="BG" 
                      style="width: 45px; height: 45px; cursor: pointer; border: 2px solid #ffffff; border-radius: 50%; box-shadow: 0 2px 5px rgba(0,0,0,0.2);" 
                      onclick="setLanguage('bg')">
-                <button onclick="setLanguage('bg')" style="cursor: pointer; background: rgba(255,255,255,0.1); border: 1px solid #ffffff; border-radius: 4px; padding: 2px 10px; font-size: 12px; color: #ffffff;">Ð‘Ð“</button>
+                <button id="ui-btn-lang-bg" onclick="setLanguage('bg')" style="cursor: pointer; background: rgba(255,255,255,0.1); border: 1px solid #ffffff; border-radius: 4px; padding: 2px 10px; font-size: 12px; color: #ffffff;">БГ</button>
             </div>
             <div style="display: flex; flex-direction: column; align-items: center; gap: 8px;">
                 <img src="images/eng_flag.png" alt="EN" 
                      style="width: 45px; height: 45px; cursor: pointer; border: 2px solid #ffffff; border-radius: 50%; box-shadow: 0 2px 5px rgba(0,0,0,0.2);" 
                      onclick="setLanguage('en')">
-                <button onclick="setLanguage('en')" style="cursor: pointer; background: rgba(255,255,255,0.1); border: 1px solid #ffffff; border-radius: 4px; padding: 2px 10px; font-size: 12px; color: #ffffff;">EN</button>
+                <button id="ui-btn-lang-en" onclick="setLanguage('en')" style="cursor: pointer; background: rgba(255,255,255,0.1); border: 1px solid #ffffff; border-radius: 4px; padding: 2px 10px; font-size: 12px; color: #ffffff;">EN</button>
             </div>
         </div>
     </header>

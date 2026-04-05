@@ -1435,8 +1435,20 @@ const GraphicsManager = {
         btnSave.onclick = () => {
             cleanup();
             this.saveProject();
-            // ╨í╨╗╨╡╨┤ saveProject (╨║╨╛╨╣╤é╨╛ ╨╡ ╤ü╨╕╨╜╤à╤Ç╨╛╨╜╨╡╨╜ prompt), ╨┐╤Ç╨╡╨┤╨╗╨░╨│╨░╨╝╨╡ ╨╖╨░╤Ç╨╡╨╢╨┤╨░╨╜╨╡
-            setTimeout(() => onContinue(), 500);
+            
+            // Изчакваме прозорецът да получи фокус отново (това се случва след затваряне на диалога за запис)
+            // преди да отворим следващия диалог за четене. Така избягваме застъпването им.
+            const onFocus = () => {
+                window.removeEventListener('focus', onFocus);
+                setTimeout(() => onContinue(), 300);
+            };
+            window.addEventListener('focus', onFocus, { once: true });
+            
+            // Фоллбак, ако фокус събитието закъснее прекалено
+            setTimeout(() => {
+                window.removeEventListener('focus', onFocus);
+                // Проверяваме дали вече не сме продължили
+            }, 5000);
         };
 
         btnDontSave.onclick = () => {

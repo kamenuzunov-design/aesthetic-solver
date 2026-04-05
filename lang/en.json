@@ -211,5 +211,7 @@
   "ui-step-closure": "Correcting polyline closure...",
   "ui-step-finished": "Harmonization finished! Harmony score: {score}%",
   "ui-step-click-next": "Click on the status field for next step",
-  "ui-alert-select-segment": "Please select exactly one segment (use the segment edit tool)."
+  "ui-alert-select-segment": "Please select exactly one segment (use the segment edit tool).",
+  "ui-btn-lang-bg": "BG",
+  "ui-btn-lang-en": "EN"
 }
