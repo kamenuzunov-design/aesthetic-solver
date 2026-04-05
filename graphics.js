@@ -1433,22 +1433,29 @@ const GraphicsManager = {
         };
 
         btnSave.onclick = () => {
-            cleanup();
             this.saveProject();
             
-            // Изчакваме прозорецът да получи фокус отново (това се случва след затваряне на диалога за запис)
-            // преди да отворим следващия диалог за четене. Така избягваме застъпването им.
-            const onFocus = () => {
-                window.removeEventListener('focus', onFocus);
-                setTimeout(() => onContinue(), 300);
-            };
-            window.addEventListener('focus', onFocus, { once: true });
+            // Превръщаме текущия диалог в потвърждение за успех
+            const promptElem = document.getElementById('ui-prompt-save-before-load');
+            if (promptElem && window.currentLangData && window.currentLangData["ui-prompt-saved"]) {
+                promptElem.textContent = window.currentLangData["ui-prompt-saved"];
+            }
             
-            // Фоллбак, ако фокус събитието закъснее прекалено
-            setTimeout(() => {
-                window.removeEventListener('focus', onFocus);
-                // Проверяваме дали вече не сме продължили
-            }, 5000);
+            // Променяме бутона за запис в бутон за продължаване
+            btnSave.textContent = (window.currentLangData && window.currentLangData["ui-btn-continue"]) || "Continue";
+            btnSave.style.background = "#28a745"; // Success color
+            
+            // Скриваме другите бутони, тъй като вече не са нужни
+            btnDontSave.style.display = 'none';
+            btnCancel.style.display = 'none';
+            
+            btnSave.onclick = () => {
+                cleanup();
+                // Възстановяваме стиловете за следващия път
+                btnDontSave.style.display = 'inline-block';
+                btnCancel.style.display = 'inline-block';
+                onContinue();
+            };
         };
 
         btnDontSave.onclick = () => {
@@ -1564,11 +1571,15 @@ const GraphicsManager = {
 
     saveProject: function() {
         if (!this.projectName) {
-            const msg = (window.Lang && window.Lang["ui-prompt-project-name"]) || "Моля, въведете име на проекта:";
+            const msg = (window.currentLangData && window.currentLangData["ui-prompt-project-name"]) || "Моля, въведете име на проекта:";
             const name = prompt(msg, "New Design");
             if (!name) return;
             this.projectName = name;
         }
+
+        // Санитаризираме името на файла
+        let safeName = this.projectName.replace(/[<>:"/\\|?*]/g, '_').trim();
+        if (!safeName) safeName = "Project";
 
         this.ensureIDs();
 
@@ -1655,7 +1666,7 @@ const GraphicsManager = {
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
-        a.download = this.projectName + ".ASPro";
+        a.download = safeName + ".ASPro";
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
