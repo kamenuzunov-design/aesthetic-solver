@@ -1435,27 +1435,30 @@ const GraphicsManager = {
         btnSave.onclick = () => {
             this.saveProject();
             
-            // Превръщаме текущия диалог в потвърждение за успех
-            const promptElem = document.getElementById('ui-prompt-save-before-load');
-            if (promptElem && window.currentLangData && window.currentLangData["ui-prompt-saved"]) {
-                promptElem.textContent = window.currentLangData["ui-prompt-saved"];
-            }
-            
-            // Променяме бутона за запис в бутон за продължаване
-            btnSave.textContent = (window.currentLangData && window.currentLangData["ui-btn-continue"]) || "Continue";
-            btnSave.style.background = "#28a745"; // Success color
-            
-            // Скриваме другите бутони, тъй като вече не са нужни
-            btnDontSave.style.display = 'none';
-            btnCancel.style.display = 'none';
-            
-            btnSave.onclick = () => {
-                cleanup();
-                // Възстановяваме стиловете за следващия път
-                btnDontSave.style.display = 'inline-block';
-                btnCancel.style.display = 'inline-block';
-                onContinue();
-            };
+            // Използваме малко по-дълъг таймаут, за да дадем предимство на системния диалог
+            setTimeout(() => {
+                // Превръщаме текущия диалог в потвърждение за успех
+                const promptElem = document.getElementById('ui-prompt-save-before-load');
+                if (promptElem && window.currentLangData && window.currentLangData["ui-prompt-saved"]) {
+                    promptElem.textContent = window.currentLangData["ui-prompt-saved"];
+                }
+                
+                // Променяме бутона за запис в бутон за продължаване
+                btnSave.textContent = (window.currentLangData && window.currentLangData["ui-btn-continue"]) || "Continue";
+                btnSave.style.background = "#28a745"; // Success color
+                
+                // Скриваме другите бутони, тъй като вече не са нужни
+                btnDontSave.style.display = 'none';
+                btnCancel.style.display = 'none';
+                
+                btnSave.onclick = () => {
+                    cleanup();
+                    // Възстановяваме стиловете за следващия път (за бъдещо ползване)
+                    btnDontSave.style.display = 'inline-block';
+                    btnCancel.style.display = 'inline-block';
+                    onContinue();
+                };
+            }, 250);
         };
 
         btnDontSave.onclick = () => {
@@ -1578,7 +1581,8 @@ const GraphicsManager = {
         }
 
         // Санитаризираме името на файла
-        let safeName = this.projectName.replace(/[<>:"/\\|?*]/g, '_').trim();
+        const pName = String(this.projectName || "Project");
+        let safeName = pName.replace(/[<>:"/\\|?*]/g, '_').trim();
         if (!safeName) safeName = "Project";
 
         this.ensureIDs();
@@ -1669,8 +1673,14 @@ const GraphicsManager = {
         a.download = safeName + ".ASPro";
         document.body.appendChild(a);
         a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
+        
+        // КРИТИЧНО: Не премахваме елемента веднага. Някои браузъри прекратяват изтеглянето,
+        // ако <a> тагът бъде премахнат от DOM преди системният диалог да е затворен.
+        // Оставяме го за 5 секунди за пълна сигурност.
+        setTimeout(() => {
+            if (document.body.contains(a)) document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }, 5000);
     },
 
     loadProjectData: function(fileContent) {
