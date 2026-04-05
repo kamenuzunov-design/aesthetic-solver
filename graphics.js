@@ -354,24 +354,29 @@ const GraphicsManager = {
             if (n < 2) return;
             const isClosed = points[0].isClosed !== false;
             
+            if (points.tempHidden) return;
+
             for (let i = 0; i < n; i++) {
-                if (!isClosed && i === 0) continue; // ╨ƒ╤Ç╨╛╨┐╤â╤ü╨║╨░╨╝╨╡ ╨╖╨░╤é╨▓╨░╤Ç╤Å╤ë╨╕╤Å ╤ü╨╡╨│╨╝╨╡╨╜╤é ╨╖╨░ ╨╛╤é╨▓╨╛╤Ç╨╡╨╜╨╕ ╨┐╤è╤é╨╕╤ë╨░
+                if (!isClosed && i === 0) continue; 
                 
                 this.ctx.beginPath();
                 const prevIdx = (i - 1 + n) % n;
                 this.ctx.moveTo(points[prevIdx].x, points[prevIdx].y);
                 this.ctx.lineTo(points[i].x, points[i].y);
                 
-                let color = "black";
-                if (this.currentTool === 'select') {
-                    if (this.selectedPaths.includes(pathIdx)) color = "#0078d7";
-                } else if (this.currentTool === 'node-edit' || this.currentTool === 'segment-edit') {
-                    if (pathIdx === this.activePathIdx) {
-                        color = (this.currentTool === 'segment-edit' && this.selectedSegments.includes(i)) ? "red" : "#0078d7";
+                let color = points.tempColor || "black";
+                if (!points.tempColor) {
+                    if (this.currentTool === 'select') {
+                        if (this.selectedPaths.includes(pathIdx)) color = "#0078d7";
+                    } else if (this.currentTool === 'node-edit' || this.currentTool === 'segment-edit') {
+                        if (pathIdx === this.activePathIdx) {
+                            color = (this.currentTool === 'segment-edit' && this.selectedSegments.includes(i)) ? "red" : "#0078d7";
+                        }
                     }
                 }
                 
                 this.ctx.strokeStyle = color;
+                this.ctx.lineWidth = (points.tempColor) ? 2 / (this.imgScale * this.userZoom) : 1 / (this.imgScale * this.userZoom);
                 this.ctx.stroke();
 
                 // Highlight for Analysis Step-by-Step
@@ -570,6 +575,10 @@ const GraphicsManager = {
                 e.preventDefault();
                 this.undo();
             } else if (e.key === 'Escape' || e.key === 'Enter') {
+                if (window.NominalManager && NominalManager.isStepByStep && e.key === 'Escape') {
+                    NominalManager.exitAnalysis();
+                    return;
+                }
                 if (this.currentPoints.length > 1) {
                     this.saveState();
                     this.paths.push([...this.currentPoints]);
@@ -2351,6 +2360,20 @@ GraphicsManager.renderRelations = function() {
             this.ctx.restore();
         });
     }
+};
+
+GraphicsManager.getSelectedSegmentDetails = function() {
+    if (this.currentTool !== 'segment-edit' || this.activePathIdx === -1 || this.selectedSegments.length !== 1) {
+        return null;
+    }
+    const pathIdx = this.activePathIdx;
+    const segIdx = this.selectedSegments[0];
+    const points = this.paths[pathIdx];
+    const n = points.length;
+    const p2 = points[segIdx];
+    const p1 = points[(segIdx - 1 + n) % n];
+    const length = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+    return { length, pathIdx, segIdx, points };
 };
 
 window.addEventListener('load', () => GraphicsManager.init());

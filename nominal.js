@@ -286,24 +286,25 @@ const NominalManager = {
     },
 
     generateStructuredModel: function() {
-        // Filter out empty or invalid paths to prevent crashes
         const paths = GraphicsManager.paths.filter(p => p && p.length > 0);
-        let bbox;
-        if (GraphicsManager.selectedPaths.length > 0) {
-            bbox = this.getSelectedBBox();
-        } else {
-            bbox = { width: 0, height: 0 };
-            paths.forEach(p => {
-                const b = GeometryUtils.getBBox(p);
-                bbox.width = Math.max(bbox.width, b.width);
-                bbox.height = Math.max(bbox.height, b.height);
-            });
+        
+        // Calculate Nominal Area based on selected segment's path
+        const seg = GraphicsManager.getSelectedSegmentDetails();
+        let nominalArea = 10000;
+        if (seg) {
+            const nominalPath = GraphicsManager.paths[seg.pathIdx];
+            nominalArea = this.getPathArea(nominalPath);
+            // If path is open or area is too small, use bounding box area as fallback
+            if (nominalArea < 10) {
+                const b = this.getPathsBBox([nominalPath]);
+                nominalArea = b.width * b.height;
+            }
         }
-        const nominalArea = bbox.width * bbox.height || 10000;
+        
         const noiseThreshold = 0.02 * nominalArea;
 
         let contours = paths.map((p, idx) => {
-            const bbox = GeometryUtils.getBBox(p);
+            const bbox = this.getPathsBBox([p]);
             const centroid = GeometryUtils.getCentroid(p);
             const area = this.getPathArea(p);
             const isClosed = p[0].isClosed !== false;
@@ -353,22 +354,50 @@ const NominalManager = {
 
     processPhaseA: function(contours) {
         // Grouping (Pattern Recognition)
-        // Simple heuristic: similar area and segment count at regular intervals
+        // 1. Cluster objects with similar shape (area, segment count)
         for (let i = 0; i < contours.length; i++) {
             if (contours[i].is_meta_group || contours[i].is_noise) continue;
-            let group = [contours[i]];
+            
+            let similarShapes = [contours[i]];
             for (let j = i + 1; j < contours.length; j++) {
                 if (contours[j].is_meta_group || contours[j].is_noise) continue;
                 
-                const areaDiff = Math.abs(contours[i].area - contours[j].area) / contours[i].area;
+                const areaDiff = Math.abs(contours[i].area - contours[j].area) / Math.max(1, contours[i].area);
                 const segDiff = Math.abs(contours[i].segments.length - contours[j].segments.length);
                 
                 if (areaDiff < 0.05 && segDiff === 0) {
-                    group.push(contours[j]);
+                    similarShapes.push(contours[j]);
                 }
             }
-            if (group.length >= 3) {
-                group.forEach(c => c.is_meta_group = true);
+
+            // 2. Identify if similar shapes form a rhythmic array (bricks/keys)
+            if (similarShapes.length >= 3) {
+                // Sort by X or Y centroid to find sequence
+                // For simplicity, sort by X first
+                similarShapes.sort((a, b) => a.centroid.x - b.centroid.x);
+                let xDistances = [];
+                for (let k = 1; k < similarShapes.length; k++) {
+                    xDistances.push(similarShapes[k].centroid.x - similarShapes[k-1].centroid.x);
+                }
+                
+                const avgXDist = xDistances.reduce((a, b) => a + b, 0) / xDistances.length;
+                const isRegularX = xDistances.every(d => Math.abs(d - avgXDist) < 10); // 10px tolerance
+
+                if (isRegularX && avgXDist > 2) {
+                    similarShapes.forEach(c => c.is_meta_group = true);
+                } else {
+                    // Try Y
+                    similarShapes.sort((a, b) => a.centroid.y - b.centroid.y);
+                    let yDistances = [];
+                    for (let k = 1; k < similarShapes.length; k++) {
+                        yDistances.push(similarShapes[k].centroid.y - similarShapes[k-1].centroid.y);
+                    }
+                    const avgYDist = yDistances.reduce((a, b) => a + b, 0) / yDistances.length;
+                    const isRegularY = yDistances.every(d => Math.abs(d - avgYDist) < 10);
+                    if (isRegularY && avgYDist > 2) {
+                        similarShapes.forEach(c => c.is_meta_group = true);
+                    }
+                }
             }
         }
         return contours;
@@ -406,7 +435,13 @@ const NominalManager = {
     buildStepQueue: function() {
         this.stepQueue.push({ type: 'init', desc: this.getT('ui-step-init') });
 
-        // Phase 1: Nominal Polyline
+        // Phase A: Preliminary Processing
+        this.stepQueue.push({ type: 'phase-a-parsing', desc: "Phase A: Parsing geometry database..." });
+        this.stepQueue.push({ type: 'phase-a-noise', desc: "Phase A: Detecting noise (area < 2% of Nominal)..." });
+        this.stepQueue.push({ type: 'phase-a-cleaning', desc: "Phase A: Cleaning detected noise vectors..." });
+        this.stepQueue.push({ type: 'phase-a-grouping', desc: "Phase A: Global pattern recognition (bricks, keys, arrays)..." });
+
+        // Phase 1: Nominal Polyline (after cleaning)
         const seg = GraphicsManager.getSelectedSegmentDetails();
         const nominalIdx = seg ? seg.pathIdx : -1;
         
@@ -440,6 +475,35 @@ const NominalManager = {
         if (step.type === 'init') {
             statusText.innerText = step.desc;
         } 
+        else if (step.type === 'phase-a-parsing') {
+            statusText.innerHTML = `<span style='color:#3498db'>${step.desc}</span><br><small>${this.getT("ui-analysis-click-next")}</small>`;
+            // Ensure structured model is fresh
+            this.structuredModel = this.generateStructuredModel();
+        }
+        else if (step.type === 'phase-a-noise') {
+            statusText.innerHTML = `<span style='color:#e74c3c'>${step.desc}</span><br><small>${this.getT("ui-analysis-click-next")}</small>`;
+            this.structuredModel.forEach(c => {
+                if (c.is_noise) {
+                    GraphicsManager.paths[c.original_index].tempColor = "red";
+                }
+            });
+        }
+        else if (step.type === 'phase-a-cleaning') {
+            statusText.innerHTML = `<span style='color:#e74c3c'>${step.desc}</span><br><small>${this.getT("ui-analysis-click-next")}</small>`;
+            this.structuredModel.forEach(c => {
+                if (c.is_noise) {
+                    GraphicsManager.paths[c.original_index].tempHidden = true;
+                }
+            });
+        }
+        else if (step.type === 'phase-a-grouping') {
+            statusText.innerHTML = `<span style='color:#1abc9c'>${step.desc}</span><br><small>${this.getT("ui-analysis-click-next")}</small>`;
+            this.structuredModel.forEach(c => {
+                if (c.is_meta_group) {
+                    GraphicsManager.paths[c.original_index].tempColor = "cyan";
+                }
+            });
+        }
         else if (step.type === 'segment') {
             // Deprecated for poly-harmonize but left for partial compatibility
         }
@@ -511,6 +575,10 @@ const NominalManager = {
         }
 
         GraphicsManager.paths = JSON.parse(JSON.stringify(this.originalPaths));
+        GraphicsManager.paths.forEach(p => {
+            delete p.tempColor;
+            delete p.tempHidden;
+        });
         GraphicsManager.highlightedSegment = null;
         GraphicsManager.redraw();
     },

@@ -215,5 +215,9 @@
   "ui-btn-lang-bg": "BG",
   "ui-btn-lang-en": "EN",
   "ui-btn-continue": "Continue",
-  "ui-prompt-saved": "Project saved. Click 'Continue' to select the new file."
+  "ui-prompt-saved": "Project saved successfully!",
+  "ui-analysis-phase-a-parsing": "Phase A: Parsing geometry database...",
+  "ui-analysis-phase-a-noise": "Phase A: Detecting noise (< 2% of Nominal area)...",
+  "ui-analysis-phase-a-grouping": "Phase A: Global pattern recognition...",
+  "ui-analysis-click-next": "Click to proceed to next step"
 }
