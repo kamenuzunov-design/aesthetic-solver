@@ -1,6 +1,6 @@
 /**
- * Aesthetic Solver - ╨ô╤Ç╨░╤ä╨╕╤ç╨╡╨╜ ╨╝╨╛╨┤╤â╨╗ (graphics.js)
- * Potrace ╨╕╨╜╤é╨╡╨│╤Ç╨░╤å╨╕╤Å, ╨░╨▓╤é╨╛╨╝╨░╤é╨╕╤ç╨╜╨╛ ╨▓╨╡╨║╤é╨╛╤Ç╨╕╨╖╨╕╤Ç╨░╨╜╨╡ ╨╕ ╨╝╨░╤ë╨░╨▒╨╕╤Ç╨░╨╜╨╡
+ * Aesthetic Solver - Графичен модул (graphics.js)
+ * Potrace интеграция, автоматично векторизиране и мащабиране
  */
 
 window.isPlusKeyPressed = false;
@@ -16,8 +16,8 @@ const GraphicsManager = {
     ctx: null,
     bgImage: new Image(),
     imgOpacity: 0.1,
-    potraceImg: null, // ╨Ü╨╡╤ê╨╕╤Ç╨░╨╝╨╡ ╨│╨╡╨╜╨╡╤Ç╨╕╤Ç╨░╨╜╨╕╤Å SVG ╨╛╨▒╨╡╨║╤é
-    // Zoom & Pan ╤ü╤é╨╡╨╣╤é
+    potraceImg: null, // Кешираме генерирания SVG обект
+    // Zoom & Pan стейт
     userZoom: 1.0,
     panX: 0,
     panY: 0,
@@ -30,7 +30,7 @@ const GraphicsManager = {
         if (this.history.length > 0) {
             const lastStateJson = JSON.stringify(this.history[this.history.length - 1]);
             if (currentStateJson === lastStateJson) {
-                return; // ╨¥╤Å╨╝╨░ ╨┐╤Ç╨╛╨╝╤Å╨╜╨░
+                return; // Няма промяна
             }
         }
         this.history.push(JSON.parse(currentStateJson));
@@ -92,9 +92,9 @@ const GraphicsManager = {
     selectedNodes: [],   
     selectedSegments: [], 
     dragTarget: null,      
-    drawStartPt: null,      // ╨ù╨░ Rectangle/Round-Rect
-    currentPoints: [],      // ╨ù╨░ Line tool
-    highlightedSegment: null, // { pathIdx, segIdx } ╨╖╨░ ╨▓╨╕╨╖╤â╨░╨╗╨╕╨╖╨░╤å╨╕╤Å ╨┐╤Ç╨╕ ╨░╨╜╨░╨╗╨╕╨╖
+    drawStartPt: null,      // За Rectangle/Round-Rect
+    currentPoints: [],      // За Line tool
+    highlightedSegment: null, // { pathIdx, segIdx } за визуализация при анализ
     imageFileName: null,
     projectName: null,
     relations: [],          // { type, pathIdx, segIdx, targetPathIdx, targetSegIdx }
@@ -102,7 +102,7 @@ const GraphicsManager = {
 
 
 
-    // ╨£╨░╤ë╨░╨▒╨╕╤Ç╨░╨╜╨╡ 
+    // Мащабиране 
     imgScale: 1,
     
     init: function() {
@@ -150,7 +150,7 @@ const GraphicsManager = {
         this.render();
         this.renderSvg();
         
-        // ╨á╨╕╤ü╤â╨▓╨░╨╜╨╡ ╨╜╨░ Box Selection Overlay
+        // Рисуване на Box Selection Overlay
         if (this.isBoxSelecting) {
             const rect = this.canvas.getBoundingClientRect();
             const startX = this.boxSelectStart.x - rect.left;
@@ -175,12 +175,12 @@ const GraphicsManager = {
 
     runPotrace: function() {
         if (!window.Potrace) {
-            console.error("╨æ╨╕╨▒╨╗╨╕╨╛╤é╨╡╨║╨░╤é╨░ Potrace ╨╜╨╡ ╨╡ ╨╜╨░╨╝╨╡╤Ç╨╡╨╜╨░.");
+            console.error("Библиотеката Potrace не е намерена.");
             return;
         }
         if (!this.bgImage.src) return;
         
-        // ╨ÿ╨╖╨┐╨╛╨╗╨╖╨▓╨░╨╝╨╡ Potrace ╨╖╨░ ╨▓╨╡╨║╤é╨╛╤Ç╨╕╨╖╨╕╤Ç╨░╨╜╨╡
+        // Използваме Potrace за векторизиране
         Potrace.setParameter({
             turdsize: 2,
             optcurve: true,
@@ -198,9 +198,9 @@ const GraphicsManager = {
                 }
                 return points;
             });
-            this.history = []; // ╨ÿ╨╖╤ç╨╕╤ü╤é╨▓╨░╨╝╨╡ ╨╕╤ü╤é╨╛╤Ç╨╕╤Å╤é╨░
+            this.history = []; // Изчистваме историята
             
-            // ╨ù╨░ ╤ü╤è╨▓╨╝╨╡╤ü╤é╨╕╨╝╨╛╤ü╤é 
+            // За съвместимост 
             const svgString = Potrace.getSVG(1, "curve");
             this.lastSvgString = svgString;
             const url = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgString);
@@ -219,7 +219,7 @@ const GraphicsManager = {
             if (typeof setTool === 'function') setTool('mirror');
             else this.currentTool = 'mirror'; // fallback
         } else {
-            alert("╨£╨╛╨╗╤Å, ╤ü╨╡╨╗╨╡╨║╤é╨╕╤Ç╨░╨╣╤é╨╡ 1 ╨╕╨╗╨╕ 2 ╨┐╨╛╨╗╨╕╨╗╨╕╨╜╨╕╨╕ ╤ç╤Ç╨╡╨╖ ╨╕╨╜╤ü╤é╤Ç╤â╨╝╨╡╨╜╤é╨░ '╨í╨╡╨╗╨╡╨║╤å╨╕╤Å' ╨┐╤è╤Ç╨▓╨╛.");
+            alert("Моля, селектирайте 1 или 2 полилинии чрез инструмента 'Селекция' първо.");
         }
     },
 
@@ -234,7 +234,7 @@ const GraphicsManager = {
             const originalPath = this.paths[pIdx];
             if (!originalPath) return;
             
-            // ╨Ü╨╗╨╛╨╜╨╕╤Ç╨░╨╝╨╡ ╤é╨╛╤ç╨║╨╕╤é╨╡ ╤ü ╨╛╤ä╤ü╨╡╤é
+            // Клонираме точките с офсет
             const clonedPath = originalPath.map(p => ({
                 ...p,
                 x: p.x + offset,
@@ -245,7 +245,7 @@ const GraphicsManager = {
             this.paths.push(clonedPath);
             newPathsIndices.push(newIdx);
             
-            // ╨Ü╨╗╨╛╨╜╨╕╤Ç╨░╨╝╨╡ ╨╕ ╨▓╤Ç╤è╨╖╨║╨╕╤é╨╡, ╨║╨╛╨╕╤é╨╛ ╤ü╨░ ╨▓╤è╤é╤Ç╨╡╤ê╨╜╨╕ ╨╖╨░ ╤é╨╛╨╖╨╕ ╨┐╤è╤é
+            // Клонираме и връзките, които са вътрешни за този път
             const pathRels = this.relations.filter(r => r.pathIdx === pIdx);
             pathRels.forEach(r => {
                 const newRel = { ...r, pathIdx: newIdx };
@@ -288,21 +288,21 @@ const GraphicsManager = {
         
         const isHorizontal = Math.abs(cxA - cxB) > Math.abs(cyA - cyB);
         
-        // ╨í╤è╨╖╨┤╨░╨▓╨░╨╝╨╡ ╨╛╨│╨╗╨╡╨┤╨░╨╗╨╜╨╛ ╨║╨╛╨┐╨╕╨╡ ╨╜╨░ B
+        // Създаваме огледално копие на B
         const mirroredB = pathB.map(p => {
             if (isHorizontal) {
-                // ╨₧╤é╤Ç╨░╨╢╨╡╨╜╨╕╨╡ ╨┐╨╛ ╨▓╨╡╤Ç╤é╨╕╨║╨░╨╗╨╜╨░╤é╨░ ╨╛╤ü x = midX (╤à╨╛╤Ç╨╕╨╖╨╛╨╜╤é╨░╨╗╨╜╨╛ ╤Ç╨░╨╖╨┐╨╛╨╗╨╛╨╢╨╡╨╜╨╕╨╡)
+                // Отражение по вертикалната ос x = midX (хоризонтално разположение)
                 return { x: 2 * midX - p.x, y: p.y };
             } else {
-                // ╨₧╤é╤Ç╨░╨╢╨╡╨╜╨╕╨╡ ╨┐╨╛ ╤à╨╛╤Ç╨╕╨╖╨╛╨╜╤é╨░╨╗╨╜╨░╤é╨░ ╨╛╤ü y = midY (╨▓╨╡╤Ç╤é╨╕╨║╨░╨╗╨╜╨╛ ╤Ç╨░╨╖╨┐╨╛╨╗╨╛╨╢╨╡╨╜╨╕╨╡)
+                // Отражение по хоризонталната ос y = midY (вертикално разположение)
                 return { x: p.x, y: 2 * midY - p.y };
             }
         });
         
-        // ╨á╨╡╨▓╨╡╤Ç╤ü╨╕╤Ç╨░╨╝╨╡ ╤Ç╨╡╨┤╨░ ╨╜╨░ ╤é╨╛╤ç╨║╨╕╤é╨╡, ╨╖╨░ ╨┤╨░ ╨╖╨░╨┐╨░╨╖╨╕╨╝ ╨┐╤Ç╨░╨▓╨╕╨╗╨╜╨╕╤Å order ╨╜╨░ ╨┐╨╛╨╗╨╕╨│╨╛╨╜╨░
+        // Реверсираме реда на точките, за да запазим правилния ред на полигона
         mirroredB.reverse();
         
-        // ╨ù╨░╨╝╨╡╨╜╤Å╨╝╨╡ A ╤ü mirrored B
+        // Заменяме A с mirrored B
         this.paths[pathAIdx] = mirroredB;
         
         if (typeof setTool === 'function') setTool('select');
@@ -315,7 +315,7 @@ const GraphicsManager = {
     renderSvg: function() {
         this.ctx.save();
         this.applyTransform();
-        // ╨Æ╤Ç╤è╤ë╨░╨╝╨╡ ╨┐╤Ç╨╛╨╖╤Ç╨░╤ç╨╜╨╛╤ü╤é╤é╨░ ╨╜╨░ 1.0 ╨╖╨░ ╨▓╨╡╨║╤é╨╛╤Ç╨╕╤é╨╡
+        // Връщаме прозрачността на 1.0 за векторите
         this.ctx.globalAlpha = 1.0;
         this.ctx.lineWidth = 1 / (this.imgScale * this.userZoom);
         
@@ -323,14 +323,14 @@ const GraphicsManager = {
             this.drawPaths();
         }
         
-        // ╨á╨╕╤ü╤â╨▓╨░╨╜╨╡ ╨╜╨░ ╤é╨╡╨║╤â╤ë╨░╤é╨░ ╨╗╨╕╨╜╨╕╤Å ╨▓ ╨┐╤Ç╨╛╤å╨╡╤ü ╨╜╨░ ╤ç╨╡╤Ç╤é╨░╨╜╨╡
+        // Рисуване на текущата линия в процес на чертане
         if (this.currentTool === 'line' && this.currentPoints.length > 0) {
             this.ctx.beginPath();
             this.ctx.moveTo(this.currentPoints[0].x, this.currentPoints[0].y);
             for (let i = 1; i < this.currentPoints.length; i++) {
                 this.ctx.lineTo(this.currentPoints[i].x, this.currentPoints[i].y);
             }
-            // ╨ƒ╨╛╨║╨░╨╖╨▓╨░╨╝╨╡ ╤ü╨╗╨╡╨┤╨▓╨░╤ë╨░╤é╨░ ╤é╨╛╤ç╨║╨░ ╨║╤è╨╝ ╨║╤â╤Ç╤ü╨╛╤Ç╨░
+            // Показваме следващата точка към курсора
             if (this.lastMouseX !== undefined) {
                 const rect = this.canvas.getBoundingClientRect();
                 const s = this.imgScale * this.userZoom;
@@ -346,7 +346,7 @@ const GraphicsManager = {
             this.ctx.stroke();
         }
 
-        // ╨á╨╕╤ü╤â╨▓╨░╨╜╨╡ ╨╜╨░ ╨┐╤Ç╨╡╨│╨╗╨╡╨┤ ╨╖╨░ ╨┐╤Ç╨░╨▓╨╛╤è╨│╤è╨╗╨╜╨╕╨║
+        // Рисуване на преглед за правоъгълник
         if ((this.currentTool === 'rect' || this.currentTool === 'round-rect') && this.drawStartPt && this.lastMouseX !== undefined) {
             const rect = this.canvas.getBoundingClientRect();
             const s = this.imgScale * this.userZoom;
@@ -438,7 +438,7 @@ const GraphicsManager = {
     renderNodes: function() {
         const points = this.paths[this.activePathIdx];
         if (!points) return;
-        const size = 8 / (this.imgScale * this.userZoom); // ╨Ü╨▓╨░╨┤╤Ç╨░╤é 8╤à8 ╨┐╨╕╨║╤ü╨╡╨╗╨░
+        const size = 8 / (this.imgScale * this.userZoom); // Квадрат 8х8 пиксела
         
         for (let i = 0; i < points.length; i++) {
             const p = points[i];
@@ -447,14 +447,14 @@ const GraphicsManager = {
             
             this.ctx.beginPath();
             if (isLast) {
-                // ╨á╨╕╤ü╤â╨▓╨░╨╝╨╡ ╤é╤Ç╨╕╤è╨│╤è╨╗╨╜╨╕╨║ ╨╖╨░ ╨║╤Ç╨░╤Å ╨╜╨░ ╨┐╨╛╨╗╨╕╨╗╨╕╨╜╨╕╤Å╤é╨░
+                // Рисуваме триъгълник за края на полилинията
                 const h = size * 1.5; // 12
                 this.ctx.moveTo(p.x, p.y + h/2);
                 this.ctx.lineTo(p.x - h/2, p.y - h/2);
                 this.ctx.lineTo(p.x + h/2, p.y - h/2);
                 this.ctx.closePath();
             } else {
-                // ╨á╨╕╤ü╤â╨▓╨░╨╝╨╡ ╨║╨▓╨░╨┤╤Ç╨░╤é 6╤à6
+                // Рисуваме квадрат 6х6
                 this.ctx.rect(p.x - size/2, p.y - size/2, size, size);
             }
             
@@ -481,7 +481,7 @@ const GraphicsManager = {
         const potraceX = (screenX - offsetX) / s;
         const potraceY = (screenY - offsetY) / s;
 
-        // 1. ╨ƒ╤Ç╨╛╨▓╨╡╤Ç╨║╨░ ╨╖╨░ ╨▓╤è╨╖╨╗╨╕ (Nodes)
+        // 1. Проверка за възли (Nodes)
         if (this.currentTool === 'node-edit' && this.activePathIdx !== -1) {
             const points = this.paths[this.activePathIdx];
             const threshold = 16 / (this.imgScale * this.userZoom);
@@ -493,10 +493,10 @@ const GraphicsManager = {
             }
         }
 
-        // 2. ╨ƒ╤Ç╨╛╨▓╨╡╤Ç╨║╨░ ╨╖╨░ ╤ü╨╡╨│╨╝╨╡╨╜╤é╨╕ (Segments) ╨╕ ╨┐╤è╤é╨╕╤ë╨░ (Paths)
+        // 2. Проверка за сегменти (Segments) и пътища (Paths)
         this.ctx.save();
         this.applyTransform();
-        this.ctx.lineWidth = 10 / (this.imgScale * this.userZoom); // ╨ƒ╨╛-╨│╨╛╨╗╤Å╨╝ ╨╛╨▒╤à╨▓╨░╤é ╨╖╨░ ╨║╨╗╨╕╨║
+        this.ctx.lineWidth = 10 / (this.imgScale * this.userZoom); // По-голям обхват за клик
         
         for (let i = this.paths.length - 1; i >= 0; i--) {
             const points = this.paths[i];
@@ -515,7 +515,7 @@ const GraphicsManager = {
         }
         this.ctx.restore();
 
-        // 3. ╨ƒ╤Ç╨╛╨▓╨╡╤Ç╨║╨░ ╨╖╨░ ╨▓╤Ç╤è╨╖╨║╨╕ (Relations)
+        // 3. Проверка за връзки (Relations)
         if (this.currentTool === 'segment-edit' && this.activePathIdx !== -1) {
             const rels = this.getSegmentRelations(this.activePathIdx);
             const size = 16 / (this.imgScale * this.userZoom);
@@ -543,7 +543,7 @@ const GraphicsManager = {
         this.ctx.save();
         this.applyTransform();
         
-        // ╨á╨╕╤ü╤â╨▓╨░╨╝╨╡ ╤Ç╨░╤ü╤é╨╡╤Ç╨╜╨╛╤é╨╛ ╨╕╨╖╨╛╨▒╤Ç╨░╨╢╨╡╨╜╨╕╨╡ ╤ü ╨┐╤Ç╨╛╨╖╤Ç╨░╤ç╨╜╨╛╤ü╤é
+        // Рисуваме растерното изображение с прозрачност
         this.ctx.globalAlpha = parseFloat(this.imgOpacity);
         this.ctx.drawImage(this.bgImage, 0, 0, this.bgImage.width, this.bgImage.height);
         
@@ -551,7 +551,7 @@ const GraphicsManager = {
     },
 
     attachListeners: function() {
-        // ╨ƒ╤Ç╨╡╨╝╨░╤à╨╜╨░╤é ╨╡ click listener-╨░, ╨╖╨░╤ë╨╛╤é╨╛ ╨▓╨╡╨║╤é╨╛╤Ç╨╕╨╖╨░╤å╨╕╤Å╤é╨░ ╤ü╨╡ ╤ü╨╗╤â╤ç╨▓╨░ ╨░╨▓╤é╨╛╨╝╨░╤é╨╕╤ç╨╜╨╛ ╨┐╤Ç╨╕ ╨║╨░╤ç╨▓╨░╨╜╨╡.
+        // Премахнат е click listener-а, защото векторизацията се случва автоматично при качване.
 
         const upload = document.getElementById('imgUpload');
         if (upload) {
@@ -564,7 +564,7 @@ const GraphicsManager = {
                         this.panY = 0;
                         this.resize();
                         
-                        // ╨É╨▓╤é╨╛╨╝╨░╤é╨╕╤ç╨╜╨╛ ╨╜╤â╨╗╨╕╤Ç╨░╨╝╨╡ ╨╜╨░ 10% ╨┐╤Ç╨╛╨╖╤Ç╨░╤ç╨╜╨╛╤ü╤é
+                        // Автоматично нулираме на 10% прозрачност
                         this.imgOpacity = 0.1;
                         const opacityRange = document.getElementById('imgOpacity');
                         if (opacityRange) opacityRange.value = 0.1;
@@ -572,10 +572,10 @@ const GraphicsManager = {
                         this.potraceImg = null; 
                         this.lastSvgString = null;
                         
-                        // ╨á╨╡╨╜╨┤╨╡╤Ç╨╕╤Ç╨░╨╝╨╡ ╨┐╤è╤Ç╨▓╨╛╨╜╨░╤ç╨░╨╗╨╜╨╛╤é╨╛ ╨┐╨╛╨╗╤â╨┐╤Ç╨╛╨╖╤Ç╨░╤ç╨╜╨╛ ╨╕╨╖╨╛╨▒╤Ç╨░╨╢╨╡╨╜╨╕╨╡, ╨┤╨╛╨║╨░╤é╨╛ ╤ü╨╡ ╨▓╨╡╨║╤é╨╛╤Ç╨╕╨╖╨╕╤Ç╨░
+                        // Рендерираме първоначалното полупрозрачно изображение, докато се векторизира
                         this.redraw();
                         
-                        // ╨É╨▓╤é╨╛╨╝╨░╤é╨╕╤ç╨╜╨╛ ╨╖╨░╨┐╨╛╤ç╨▓╨░╨╝╨╡ ╨▓╨╡╨║╤é╨╛╤Ç╨╕╨╖╨╕╤Ç╨░╨╜╨╡╤é╨╛
+                        // Автоматично започваме векторизирането
                         this.runPotrace();
                     };
                     this.bgImage.src = f.target.result;
@@ -600,7 +600,7 @@ const GraphicsManager = {
         }
 
         document.addEventListener('keydown', (e) => {
-            if ((e.code === 'KeyZ' || e.key.toLowerCase() === 'z' || e.key === '╤Å') && (e.ctrlKey || e.metaKey)) {
+            if ((e.code === 'KeyZ' || e.key.toLowerCase() === 'z' || e.key === 'я') && (e.ctrlKey || e.metaKey)) {
                 e.preventDefault();
                 this.undo();
             } else if (e.key === 'Escape' || e.key === 'Enter') {
@@ -615,7 +615,7 @@ const GraphicsManager = {
                 this.currentPoints = [];
                 this.drawStartPt = null;
 
-                // ╨Æ╤Ç╤è╤ë╨░╨╝╨╡ ╤ü╨╡ ╨║╤è╨╝ ╨░╨║╤é╨╕╨▓╨╜╨╛ ╤ü╨╡╨╗╨╡╨║╤é╨╕╤Ç╨░╨╜╨╕╤Å ╨╕╨╜╤ü╤é╤Ç╤â╨╝╨╡╨╜╤é ╨╛╤é ╨┐╤è╤Ç╨▓╨░╤é╨░ ╨│╤Ç╤â╨┐╨░
+                // Връщаме се към активно селектирания инструмент от първата група
                 const selectionGroup = ['select', 'segment-edit', 'node-edit'];
                 const activeSelection = selectionGroup.find(t => document.getElementById('ui-geo-' + t)?.classList.contains('active'));
                 if (activeSelection) {
@@ -637,7 +637,7 @@ const GraphicsManager = {
                     const points = this.paths[this.activePathIdx];
                     const sortedNodes = [...this.selectedNodes].sort((a,b) => b-a);
                     sortedNodes.forEach(idx => {
-                        // ╨₧╤ü╤é╨░╨▓╤Å╨╝╨╡ ╨┐╨╛╨╜╨╡ 2 ╤é╨╛╤ç╨║╨╕, ╨╖╨░ ╨┤╨░ ╨╜╨╡ ╤ü╤ç╤â╨┐╨╕╨╝ ╨╝╨░╤ü╨╕╨▓╨░ ╨╜╨░╨┐╤è╨╗╨╜╨╛
+                        // Оставяме поне 2 точки, за да не счупим масива напълно
                         if (points.length > 2) {
                             points.splice(idx, 1);
                         }
@@ -650,9 +650,9 @@ const GraphicsManager = {
                     const sortedPaths = [...this.selectedPaths].sort((a,b) => b-a);
                     sortedPaths.forEach(pIdx => {
                         this.paths.splice(pIdx, 1);
-                        // ╨£╨░╤à╨░╨╝╨╡ ╨╕ ╨▓╤Ç╤è╨╖╨║╨╕╤é╨╡ ╨╖╨░ ╤é╨╛╨╖╨╕ ╨┐╤è╤é
+                        // Махаме и връзките за този път
                         this.relations = this.relations.filter(r => r.pathIdx !== pIdx);
-                        // ╨¿╨╕╤ä╤é╨▓╨░╨╝╨╡ ╨╕╨╜╨┤╨╡╨║╤ü╨╕╤é╨╡ ╨╜╨░ ╨╛╤ü╤é╨░╨╜╨░╨╗╨╕╤é╨╡ ╨▓╤Ç╤è╨╖╨║╨╕
+                        // Шифтвме индексите на останалите връзки
                         this.relations.forEach(r => { if (r.pathIdx > pIdx) r.pathIdx--; });
                     });
                     this.selectedPaths = [];
@@ -705,11 +705,11 @@ const GraphicsManager = {
                              newPaths.push(currentPath);
                          }
                          
-                         // ╨É╨║╨╛ ╨┐╤è╤é╤Å╤é ╤ü╨╡ ╤Ç╨░╨╖╤å╨╡╨┐╨╕ ╨╕╨╖╤å╤Å╨╗╨╛ ╨┤╨╛ ╨╡╨┤╨╕╨╜╨╕╤ç╨╜╨╕ ╤é╨╛╤ç╨║╨╕, ╤é╨╡ ╤ü╤è╤ë╨╛ ╤ë╨╡ ╨╛╤ü╤é╨░╨╜╨░╤é
-                         // ╨ÿ╨╖╨╛╨╗╨╕╤Ç╨░╨╜╨╕╤é╨╡ ╤é╨╛╤ç╨║╨╕ (length === 1) ╨╜╨╡ ╤ü╨╡ ╤Ç╨╡╨╜╨┤╨▓╨░╤é ╨║╨░╤é╨╛ ╨╗╨╕╨╜╨╕╨╕, ╨╜╨╛ ╤ü╤è╤ë╨╡╤ü╤é╨▓╤â╨▓╨░╤é ╨║╨░╤é╨╛ ╨▓╤è╨╖╨╗╨╕
+                         // Ако пътят се разцепи изцяло до единични точки, те също ще останат
+                         // Изолираните точки (length === 1) не се рендват като линии, но съществуват като възли
                          this.paths.splice(this.activePathIdx, 1, ...newPaths);
                     }
-                    // ╨ƒ╤Ç╨╕ ╨┐╤Ç╨╛╨╝╤Å╨╜╨░ ╨╜╨░ ╤ü╤é╤Ç╤â╨║╤é╤â╤Ç╨░╤é╨░ ╨╜╨░ ╨┐╤è╤é╤Å, ╨▓ ╨╝╨╛╨╝╨╡╨╜╤é╨░ ╨╡ ╨╜╨░╨╣-╤ü╨╕╨│╤â╤Ç╨╜╨╛ ╨┤╨░ ╨╕╨╖╤ç╨╕╤ü╤é╨╕╨╝ ╨▓╤Ç╤è╨╖╨║╨╕╤é╨╡ ╨╖╨░ ╤é╨╛╨╖╨╕ ╨┐╤è╤é
+                    // При промяна на структурата на пътя, в момента е най-сигурно да изчистим връзките за този път
                     this.relations = this.relations.filter(r => r.pathIdx !== this.activePathIdx);
                     this.selectedSegments = [];
                     this.activePathIdx = -1;
@@ -740,12 +740,12 @@ const GraphicsManager = {
             const delta = e.deltaY > 0 ? -zoomSpeed * this.userZoom : zoomSpeed * this.userZoom;
             const newZoom = Math.max(0.1, Math.min(10, this.userZoom + delta));
             
-            // Zoom ╨║╤è╨╝ ╨║╤â╤Ç╤ü╨╛╤Ç╨░
+            // Zoom към курсора
             const rect = this.canvas.getBoundingClientRect();
             const mouseX = e.clientX - rect.left;
             const mouseY = e.clientY - rect.top;
             
-            // ╨Ü╨╛╤Ç╨╡╨║╤å╨╕╤Å ╨╜╨░ Pan, ╨╖╨░ ╨┤╨░ ╨╛╤ü╤é╨░╨╜╨╡ ╤é╨╛╤ç╨║╨░╤é╨░ ╨┐╨╛╨┤ ╨║╤â╤Ç╤ü╨╛╤Ç╨░
+            // Корекция на Pan, за да остане точката под курсора
             const dx = (mouseX - this.canvas.width/2 - this.panX) * (delta / this.userZoom);
             const dy = (mouseY - this.canvas.height/2 - this.panY) * (delta / this.userZoom);
             
@@ -760,22 +760,22 @@ const GraphicsManager = {
         this.canvas.addEventListener('mousedown', (e) => {
             let hit = this.getHitInfo(e.clientX, e.clientY);
             
-            // 1. ╨ƒ╤Ç╨╛╨┤╤è╨╗╨╢╨░╨▓╨░╨╜╨╡ ╨╜╨░ ╨░╨╜╨░╨╗╨╕╨╖╨░ ╨┐╤Ç╨╕ ╨║╨╗╨╕╨║ (Step-by-Step)
+            // 1. Продължаване на анализа при клик (Step-by-Step)
             if (window.NominalManager && NominalManager.isStepByStep) {
                 NominalManager.nextStep();
                 return;
             }
 
-            // 2. Pan ╤ü ╨┤╨╡╤ü╨╡╨╜ ╨╕╨╗╨╕ ╤ü╤Ç╨╡╨┤╨╡╨╜ ╨▒╤â╤é╨╛╨╜
+            // 2. Pan с десен или среден бутон
             if (e.button === 1 || e.button === 2) {
                 this.isDragging = true;
                 this.lastMouseX = e.clientX;
                 this.lastMouseY = e.clientY;
-                if (e.button === 2) e.preventDefault(); // ╨ù╨░ ╨┤╨╡╤ü╨╡╨╜ ╨▒╤â╤é╨╛╨╜
+                if (e.button === 2) e.preventDefault(); // За десен бутон
                 return;
             }
 
-            // ╨ƒ╤Ç╨╛╨┤╤è╨╗╨╢╨░╨▓╨░╨╝╨╡ ╤ü╨░╨╝╨╛ ╨╖╨░ ╨╗╤Å╨▓ ╨▒╤â╤é╨╛╨╜ (button 0)
+            // Продължаваме само за ляв бутон (button 0)
             if (e.button !== 0) return;
             
             if (this.currentTool === 'mirror') {
@@ -803,21 +803,21 @@ const GraphicsManager = {
                 
                 if (hit) {
                     if (this.currentTool === 'select' && shiftKey) {
-                        // ╨Ü╨╗╨╛╨╜╨╕╤Ç╨░╨╝╨╡ ╨┐╤Ç╨╕ Shift + Drag
+                        // Клонираме при Shift + Drag
                         this.saveState();
                         if (!this.selectedPaths.includes(hit.pathIdx)) {
                             this.selectedPaths = [hit.pathIdx];
                         }
                         this.copySelected(false);
-                        // ╨₧╨▒╨╜╨╛╨▓╤Å╨▓╨░╨╝╨╡ 'hit', ╨╖╨░ ╨┤╨░ ╤ü╨╛╤ç╨╕ ╨║╤è╨╝ ╨╡╨┤╨╕╨╜ ╨╛╤é ╨╜╨╛╨▓╨╛╤ü╤è╨╖╨┤╨░╨┤╨╡╨╜╨╕╤é╨╡ ╨┐╤è╤é╨╕╤ë╨░
+                        // Обновяваме 'hit', за да сочи към един от новосъздадените пътища
                         hit = { type: 'path', pathIdx: this.paths.length - 1 };
                         this.dragTarget = hit;
                     } else {
-                        this.saveState(); // ╨ù╨░╨┐╨░╨╖╨▓╨░╨╝╨╡ ╨╖╨░ Undo ╨┐╤Ç╨╡╨┤╨╕ ╨╝╨╡╤ü╤é╨╡╨╜╨╡
+                        this.saveState(); // Запазваме за Undo преди местене
                     }
                     
                     if (this.currentTool === 'select') {
-                        // ╨á╨░╨▒╨╛╤é╨░ ╤ü ╤å╨╡╨╗╨╕ ╨┐╤è╤é╨╕╤ë╨░
+                        // Работа с цели пътища
                         if (ctrlKey) {
                             if (this.selectedPaths.includes(hit.pathIdx)) {
                                 this.selectedPaths = this.selectedPaths.filter(p => p !== hit.pathIdx);
@@ -830,7 +830,7 @@ const GraphicsManager = {
                             }
                         }
                     } else if (this.currentTool === 'segment-edit') {
-                        // ╨á╨░╨▒╨╛╤é╨░ ╤ü╤è╤ü ╤ü╨╡╨│╨╝╨╡╨╜╤é╨╕
+                        // Работа със сегменти
                         this.activePathIdx = hit.pathIdx;
                         this.selectedNodes = []; 
                         
@@ -846,7 +846,7 @@ const GraphicsManager = {
                             }
                         }
                     } else if (this.currentTool === 'node-edit') {
-                        // ╨á╨░╨▒╨╛╤é╨░ ╤ü ╨▓╤è╨╖╨╗╨╕
+                        // Работа с възли
                         this.activePathIdx = hit.pathIdx;
                         this.selectedSegments = [];
                         
@@ -857,7 +857,7 @@ const GraphicsManager = {
                             const p1 = points[prevIdx];
                             const p2 = points[idx];
                             
-                            // ╨ÿ╨╖╤ç╨╕╤ü╨╗╤Å╨▓╨░╨╝╨╡ Potrace ╨║╨╛╨╛╤Ç╨┤╨╕╨╜╨░╤é╨╕╤é╨╡ ╨╜╨░ ╨╝╨╕╤ê╨║╨░╤é╨░
+                            // Изчисляваме Potrace координатите на мишката
                             const rect = this.canvas.getBoundingClientRect();
                             const s = this.imgScale * this.userZoom;
                             const imgW = (this.bgImage.complete && this.bgImage.width > 0) ? this.bgImage.width : 100;
@@ -867,7 +867,7 @@ const GraphicsManager = {
                             const potraceX = (e.clientX - rect.left - offsetX) / s;
                             const potraceY = (e.clientY - rect.top - offsetY) / s;
                             
-                            // ╨ƒ╤Ç╨╛╨┤╨╢╨╡╨║╤é╨╕╤Ç╨░╨╝╨╡ ╨▓╤è╤Ç╤à╤â ╨╗╨╕╨╜╨╕╤Å╤é╨░ ╨╖╨░ ╤é╨╛╤ç╨╜╨╛╤ü╤é
+                            // Проджектираме върху линията за точност
                             const atob = { x: p2.x - p1.x, y: p2.y - p1.y };
                             const atop = { x: potraceX - p1.x, y: potraceY - p1.y };
                             const len2 = atob.x * atob.x + atob.y * atob.y;
@@ -881,7 +881,7 @@ const GraphicsManager = {
                             points.splice(idx, 0, newPt);
                             this.selectedNodes = [idx];
                             
-                            // ╨ƒ╤Ç╨░╨▓╨╕╨╝ ╨╜╨╛╨▓╨░╤é╨░ ╤é╨╛╤ç╨║╨░ dragTarget, ╨╖╨░ ╨┤╨░ ╤ü╨╡ ╨┤╨▓╨╕╨╢╨╕ ╨┐╤Ç╨╕ ╨▓╨╗╨░╤ç╨╡╨╜╨╡
+                            // Правим новата точка dragTarget, за да се движи при влачене
                             hit.type = 'node';
                             hit.nodeIdx = idx;
                         } else if (hit.type === 'node') {
@@ -906,7 +906,7 @@ const GraphicsManager = {
                 } else {
                     if (!ctrlKey) {
                         if (this.currentTool === 'select') {
-                            // ╨¥╨╡ ╤Ç╨░╨╖╤ü╨╡╨╗╨╡╨║╤é╨╕╤Ç╨░╨╝╨╡ ╨▓╨╡╨┤╨╜╨░╨│╨░ ╨┐╤è╤é╨╕╤ë╨░╤é╨░, ╨░╨║╨╛ ╨╝╨╛╨╢╨╡ ╨▒╨╕ ╨╖╨░╨┐╨╛╤ç╨▓╨░╨╝╨╡ box select
+                            // Не разселектираме веднага пътищата, ако може би започваме box select
                         } else {
                             this.selectedNodes = [];
                             this.selectedSegments = [];
@@ -914,7 +914,7 @@ const GraphicsManager = {
                     }
                     this.dragTarget = null;
                     
-                    if (e.button === 0) { // ╨¢╤Å╨▓ ╨║╨╗╨╕╨║ ╨╖╨░ Box Select
+                    if (e.button === 0) { // Ляв клик за Box Select
                         this.isBoxSelecting = true;
                         this.boxSelectStart = { x: e.clientX, y: e.clientY };
                         this.boxSelectEnd = { x: e.clientX, y: e.clientY };
@@ -951,7 +951,7 @@ const GraphicsManager = {
                 };
             }
 
-            // ╨ƒ╤Ç╨╛╨┤╤è╨╗╨╢╨░╨▓╨░╨╝╨╡ ╤ü Pan ╨╗╨╛╨│╨╕╨║╨░╤é╨░ ╤ü╨░╨╝╨╛ ╨░╨║╨╛ ╨╜╨╡ ╨▓╨╗╨░╤ç╨╕╨╝ ╨▓╤è╨╖╨╡╨╗/╤ü╨╡╨│╨╝╨╡╨╜╤é, ╨╜╨╡ ╤ü╨╝╨╡ ╨▓ box select ╨╕ ╨╜╨╡ ╤ç╨╡╤Ç╤é╨░╨╡╨╝
+            // Продължаваме с Pan логиката само ако не влачим възел/сегмент, не сме в box select и не чертаем
             if (!this.dragTarget && !this.isBoxSelecting && !['line', 'rect', 'round-rect'].includes(this.currentTool)) {
                 this.isDragging = true;
                 this.lastMouseX = e.clientX;
@@ -1044,9 +1044,9 @@ const GraphicsManager = {
                 }
                 
                 this.lastDragX = potraceX;
+                // Предаваме списък с фиксирани (влечени) точки на солвъра
                 this.lastDragY = potraceY;
                 
-                // ╨ƒ╤Ç╨╡╨┤╨░╨▓╨░╨╝╨╡ ╤ü╨┐╨╕╤ü╤è╨║ ╤ü ╤ä╨╕╨║╤ü╨╕╤Ç╨░╨╜╨╕ (╨▓╨╗╨░╤ç╨╡╨╜╨╕) ╤é╨╛╤ç╨║╨╕ ╨╜╨░ ╤ü╨╛╨╗╨▓╤è╤Ç╨░
                 const fixed = [];
                 if (this.currentTool === 'node-edit' && points) {
                     this.selectedNodes.forEach(idx => fixed.push({ pathIdx: this.activePathIdx, nodeIdx: idx }));
@@ -1069,7 +1069,7 @@ const GraphicsManager = {
             }
 
             if (this.currentTool === 'line' || this.currentTool === 'rect' || this.currentTool === 'round-rect') {
-                this.redraw(); // ╨ù╨░ ╨┐╤Ç╨╡╨│╨╗╨╡╨┤ ╨┐╤Ç╨╕ ╨┤╨▓╨╕╨╢╨╡╨╜╨╕╨╡ (preview)
+                this.redraw(); // За преглед при движение (preview)
                 return;
             }
 
@@ -1105,7 +1105,7 @@ const GraphicsManager = {
                 const maxX = (Math.max(startX, endX) - offsetX) / s;
                 const maxY = (Math.max(startY, endY) - offsetY) / s;
                 
-                // ╨ƒ╤Ç╨╛╨┐╤â╤ü╨║╨░╨╝╨╡, ╨░╨║╨╛ ╨║╤â╤é╨╕╤Å╤é╨░ ╨╡ ╤é╨▓╤è╤Ç╨┤╨╡ ╨╝╨░╨╗╨║╨░ (╨┐╤Ç╨╛╤ü╤é╨╛ ╨║╨╗╨╕╨║╨▓╨░╨╜╨╡)
+                // Пропускаме, ако кутията е твърде малка (просто кликване)
                 if (Math.abs(startX - endX) > 5 || Math.abs(startY - endY) > 5) {
                     
                     let foundPaths = [];
@@ -1200,7 +1200,7 @@ const GraphicsManager = {
 
             this.isDragging = false;
             
-            // ╨ù╨░╨▓╤è╤Ç╤ê╨▓╨░╨╜╨╡ ╨╜╨░ ╤ç╨╡╤Ç╤é╨░╨╜╨╡ (Rect / Round-Rect)
+            // Завършване на чертане (Rect / Round-Rect)
             if ((this.currentTool === 'rect' || this.currentTool === 'round-rect') && this.drawStartPt) {
                 const rect = this.canvas.getBoundingClientRect();
                 const s = this.imgScale * this.userZoom;
@@ -1238,7 +1238,7 @@ const GraphicsManager = {
                 }
                 this.drawStartPt = null;
                 
-                // ╨Æ╤Ç╤è╤ë╨░╨╝╨╡ ╤ü╨╡ ╨║╤è╨╝ ╨░╨║╤é╨╕╨▓╨░╨╜╨░╤é╨░ ╤ü╨╡╨╗╨╡╨║╤å╨╕╤Å, ╨░╨║╨╛ ╨╡ ╨▒╨╕╨╗╨░ ╨╜╨░╤é╨╕╤ü╨╜╨░╤é╨░
+                // Връщаме се към активната селекция, ако е била натисната
                 const selectionGroup = ['select', 'segment-edit', 'node-edit'];
                 const activeSelection = selectionGroup.find(t => document.getElementById('ui-geo-' + t)?.classList.contains('active'));
                 if (activeSelection) this.currentTool = activeSelection;
@@ -1246,7 +1246,7 @@ const GraphicsManager = {
                 this.redraw();
             }
 
-            // ╨ƒ╤Ç╨╛╨▓╨╡╤Ç╨║╨░ ╨╖╨░ ╤ü╨▒╨╗╨╕╨╢╨░╨▓╨░╨╜╨╡ ╨╜╨░ ╨║╤Ç╨░╨╣╨╜╨╕ ╤é╨╛╤ç╨║╨╕ (Line Tool)
+            // Проверка за сближаване на крайни точки (Line Tool)
             if (this.currentTool === 'line' && this.currentPoints.length > 2) {
                 const lastIdx = this.currentPoints.length - 1;
                 const lastPt = this.currentPoints[lastIdx];
@@ -1269,7 +1269,7 @@ const GraphicsManager = {
                     }
                     if (foundOther) break;
                 }
-                // ╨ƒ╤Ç╨╛╨▓╨╡╤Ç╨║╨░ ╨╕ ╨║╤è╨╝ ╤ü╨╛╨▒╤ü╤é╨▓╨╡╨╜╨╛╤é╨╛ ╨╜╨░╤ç╨░╨╗╨╛ (closing the loop)
+                // Проверка и към собственото начало (closing the loop)
                 const distToStart = Math.hypot(this.currentPoints[0].x - lastPt.x, this.currentPoints[0].y - lastPt.y);
                 if (!foundOther && distToStart <= SNAP_THRESHOLD_WORLD) {
                     foundOther = { pathIdx: -1, nodeIdx: 0 }; // Special marker for self-closing
@@ -1294,7 +1294,7 @@ const GraphicsManager = {
                         }
                         this.currentPoints = [];
                         
-                        // ╨Æ╤Ç╤è╤ë╨░╨╝╨╡ ╤ü╨╡ ╨║╤è╨╝ ╨░╨║╤é╨╕╨▓╨░╨╜╨░╤é╨░ ╤ü╨╡╨╗╨╡╨║╤å╨╕╤Å
+                        // Връщаме се към активната селекция
                         const selectionGroup = ['select', 'segment-edit', 'node-edit'];
                         const activeSelection = selectionGroup.find(t => document.getElementById('ui-geo-' + t)?.classList.contains('active'));
                         if (activeSelection) this.currentTool = activeSelection;
@@ -1304,7 +1304,7 @@ const GraphicsManager = {
                 }
             }
 
-            // ╨ƒ╤Ç╨╛╨▓╨╡╤Ç╨║╨░ ╨╖╨░ ╤ü╨▒╨╗╨╕╨╢╨░╨▓╨░╨╜╨╡ ╨╜╨░ ╨║╤Ç╨░╨╣╨╜╨╕ ╤é╨╛╤ç╨║╨╕ ╤ü╨╗╨╡╨┤ ╨▓╨╗╨░╤ç╨╡╨╜╨╡ (Node Edit)
+            // Проверка за сближаване на крайни точки след влачене (Node Edit)
             if (this.dragTarget && this.dragTarget.type === 'node' &&
                 this.currentTool === 'node-edit' && this.activePathIdx !== -1) {
                 
@@ -1331,11 +1331,11 @@ const GraphicsManager = {
                         
                         const endpointIndices = [];
                         if (pIdx === this.activePathIdx) {
-                            // ╨í╤è╤ë╨╕╤Å ╨║╨╛╨╜╤é╤â╤Ç ΓÇô ╨┐╤Ç╨╛╨▓╨╡╤Ç╤Å╨▓╨░╨╝╨╡ ╨┤╨░╨╗╨╕ ╨║╤Ç╨░╨╣╨╜╨░╤é╨░ ╤é╨╛╤ç╨║╨░ ╨╡ ╨▒╨╗╨╕╨╖╨╛ ╨┤╨╛ ╨╛╤é╤ü╤Ç╨╡╤ë╨╜╨╕╤Å ╨║╤Ç╨░╨╣ ╨╜╨░ ╤ü╤è╤ë╨╕╤Å ╨┐╤è╤é
+                            // Същият контур – проверяваме дали крайната точка е близо до отсрещния край на същия път
                             if (draggedNodeIdx === 0 && pts.length > 1) endpointIndices.push(pts.length - 1);
                             else if (draggedNodeIdx === pts.length - 1 && pts.length > 1) endpointIndices.push(0);
                         } else {
-                            // ╨ö╤Ç╤â╨│ ╨╛╤é╨▓╨╛╤Ç╨╡╨╜ ╨║╨╛╨╜╤é╤â╤Ç
+                            // Друг отворен контур
                             endpointIndices.push(0, pts.length - 1);
                         }
                         
@@ -1351,6 +1351,7 @@ const GraphicsManager = {
                     }
                     
                     if (foundOther) {
+                        // Обновяваме текста на диалога при показване (за всеки случай)
                         this.showConnectDialog(() => {
                             this.executeJoin(
                                 this.activePathIdx, draggedNodeIdx,
@@ -1446,7 +1447,7 @@ const GraphicsManager = {
         const hasContent = this.paths.length > 0 || (this.bgImage.src && this.bgImage.src.length > 0);
         if (hasContent) {
             this.showSaveBeforeLoadDialog(() => {
-                // ╨ƒ╤Ç╨╛╨┤╤è╨╗╨╢╨░╨▓╨░╨╝╨╡ ╨║╤è╨╝ ╨╖╨░╤Ç╨╡╨╢╨┤╨░╨╜╨╡ ╤ü╨╗╨╡╨┤ ╨╖╨░╨┐╨╕╤ü ╨╕╨╗╨╕ ╨┐╨╛╤é╨▓╤è╤Ç╨╢╨┤╨╡╨╜╨╕╨╡ ╨╖╨░ ╨╕╨╖╤ç╨╕╤ü╤é╨▓╨░╨╜╨╡
+                // Продължаваме към зареждане след запис или потвърждение за изчистване
                 document.getElementById('projectLoad').click();
             });
         } else {
@@ -1536,29 +1537,29 @@ const GraphicsManager = {
         const pathB = this.paths[pathBIdx];
         if (!pathA || !pathB) return;
         
-        // ╨í╤è╤ë╨╕╤Å ╨┐╤è╤é ΓÇô ╨╖╨░╤é╨▓╨░╤Ç╤Å╨╝╨╡ ╨║╨╛╨╜╤é╤â╤Ç╨░
+        // Същият път – затваряме контура
         if (pathAIdx === pathBIdx) {
-            delete pathA[0].isClosed; // ╨╕╨╖╤é╤Ç╨╕╨▓╨░╨╝╨╡ ╨╛╤é╨▓╨╛╤Ç╨╡╨╜╨╕╤Å ╨┐╤Ç╨╕╨╖╨╜╨░╨║ ΓÇô ╤ü╤é╨░╨▓╨░ ╨╖╨░╤é╨▓╨╛╤Ç╨╡╨╜
+            delete pathA[0].isClosed; // изтриваме отворения признак – става затворен
             this.selectedNodes = [];
             this.redraw();
             return;
         }
         
-        // ╨á╨╡╨░╤Ç╨░╨╜╨╢╨╕╤Ç╨░╨╝╨╡ ╤é╨░╨║╨░, ╤ç╨╡ nodeA ╨┤╨░ ╨╡ ╨║╤Ç╨░╤Å╤é (last) ╨╜╨░ A, ╨░ nodeB ╨┤╨░ ╨╡ ╨╜╨░╤ç╨░╨╗╨╛╤é╨╛ (0) ╨╜╨░ B
+        // Реаранжираме така, че nodeA да е краят (last) на A, а nodeB да е началото (0) на B
         let a = [...pathA];
         let b = [...pathB];
         
-        // ╨É╨║╨╛ ╨▓╨╗╨░╤ç╨╡╨╜╨░╤é╨░ ╤é╨╛╤ç╨║╨░ ╨╡ ╨╜╨░╤ç╨░╨╗╨╛╤é╨╛ (0) ╨╜╨░ A, ╨╛╨▒╤è╤Ç╤è╤ë╨░╨╝╨╡ A
+        // Ако влечената точка е началото (0) на A, обръщаме A
         if (nodeAIdx === 0) a = a.reverse();
-        // ╨É╨║╨╛ ╨╖╨░╨║╨░╤ç╨▓╨░╨╜╨░╤é╨░ ╤é╨╛╤ç╨║╨░ ╨╡ ╨║╤Ç╨░╤Å╤é (last) ╨╜╨░ B, ╨╛╨▒╤è╤Ç╤è╤ë╨░╨╝╨╡ B
+        // Ако закачваната точка е краят (last) на B, обръщаме B
         if (nodeBIdx === b.length - 1) b = b.reverse();
         
-        // ╨í╨▓╤è╤Ç╨╖╨▓╨░╨╝╨╡: A (╨▓╤ü╨╕╤ç╨║╨╕ ╤é╨╛╤ç╨║╨╕) + B (╨▒╨╡╨╖ ╨┐╤è╤Ç╨▓╨░╤é╨░, ╨║╨╛╤Å╤é╨╛ ╨╡ ╨┤╤â╨▒╨╗╨╕╨║╨░╤é)
+        // Свързваме: A (всички точки) + B (без първата, която е дубликат)
         const joined = a.concat(b.slice(1));
-        // ╨ƒ╨╛╨╜╨╡╨╢╨╡ ╤Ç╨╡╨╖╤â╨╗╤é╨░╤é╤è╤é ╨╡ ╨╛╤é╨▓╨╛╤Ç╨╡╨╜ ╨║╨╛╨╜╤é╤â╤Ç, ╨╝╨░╤Ç╨║╨╕╤Ç╨░╨╝╨╡ isOpen
+        // Понеже резултатът е отворен контур, маркираме isOpen
         joined[0].isClosed = false;
         
-        // ╨ù╨░╨╝╨╡╨╜╤Å╨╝╨╡ A ╤ü╤è╤ü ╤ü╨╗╤Ä╤é╨╕╤Å ╨╝╨░╤ü╨╕╨▓ ╨╕ ╨╕╨╖╤é╤Ç╨╕╨▓╨░╨╝╨╡ B
+        // Заменяме A със слетия масив и изтриваме B
         this.paths[pathAIdx] = joined;
         // ╨ÿ╨╖╤é╤Ç╨╕╨▓╨░╨╝╨╡ B (from the end to not disturb A's index)
         const bIdxToRemove = pathBIdx > pathAIdx ? pathBIdx : pathBIdx;
@@ -1836,7 +1837,7 @@ const GraphicsManager = {
 function setTool(tool) {
     GraphicsManager.currentTool = tool;
     
-    // ╨ö╨╡╤ä╨╕╨╜╨╕╤Ç╨░╨╝╨╡ ╨│╤Ç╤â╨┐╨╕ ╨╕╨╜╤ü╤é╤Ç╤â╨╝╨╡╨╜╤é╨╕
+    // Дефинираме групи инструменти
     const selectionGroup = ['select', 'segment-edit', 'node-edit'];
     const geometryGroup = ['line', 'rect', 'round-rect', 'mirror'];
     
@@ -1849,7 +1850,7 @@ function setTool(tool) {
     const activeBtn = document.getElementById('ui-geo-' + tool);
     if (activeBtn) activeBtn.classList.add('active');
 
-    // ╨ú╨┐╤Ç╨░╨▓╨╗╨╡╨╜╨╕╨╡ ╨╜╨░ ╨▒╤â╤é╨╛╨╜╨╕╤é╨╡ ╨╖╨░ ╨▓╤Ç╤è╨╖╨║╨╕ (Relations)
+    // Управление на бутоните за връзки (Relations)
     const relationsGroup = ['horizontal', 'vertical', 'equal', 'parallel', 'collinear'];
     relationsGroup.forEach(t => {
         const btn = document.getElementById('ui-rel-' + t);
@@ -1866,7 +1867,7 @@ function setTool(tool) {
         }
     });
 
-    // ╨æ╤â╤é╨╛╨╜╨╕, ╨░╨║╤é╨╕╨▓╨╜╨╕ ╤ü╨░╨╝╨╛ ╨┐╤Ç╨╕ 'select'
+    // Бутони, активни само при 'select'
     const selectOnlyGroup = ['mirror', 'copy'];
     const alignGroup = ['left', 'center', 'right', 'top', 'middle', 'bottom'];
     
@@ -1885,7 +1886,7 @@ function setTool(tool) {
         }
     });
 
-    // ╨ó╤Ç╨░╨╜╤ü╤ä╨╛╤Ç╨╝╨░╤å╨╕╤Å ╨╜╨░ ╤ü╨╡╨╗╨╡╨║╤é╨╕╤Ç╨░╨╜╨╕ ╨╛╨▒╨╡╨║╤é╨╕
+    // Трансформация на селектирани обекти
     if (GraphicsManager.selectedPaths.length > 0) {
         let transformed = false;
         if (tool === 'rect') {
@@ -1897,7 +1898,7 @@ function setTool(tool) {
         }
         
         if (transformed) {
-            // ╨Æ╤Ç╤è╤ë╨░╨╝╨╡ ╤ü╨╡ ╨║╤è╨╝ ╨┐╨╛╤ü╨╗╨╡╨┤╨╜╨░╤é╨░ ╤ü╨╡╨╗╨╡╨║╤å╨╕╤Å
+            // Връщаме се към последната селекция
             const geometryGroup = ['line', 'rect', 'round-rect', 'mirror'];
             geometryGroup.forEach(t => document.getElementById('ui-geo-' + t)?.classList.remove('active'));
             
@@ -1953,14 +1954,14 @@ GraphicsManager.createRoundRectPoints = function(x1, y1, x2, y2) {
     const minSize = Math.min(w, h);
     
     let r = 5;
-    let steps = 2; // ╨┤╨▓╨╡ ╤Ç╨░╨▓╨╜╨╕ ╨╗╨╕╨╜╨╕╨╕ (chamfer)
+    let steps = 2; // две равни линии (chamfer)
     if (minSize < 15) {
         r = 2;
         steps = 1;
     }
 
     const pts = [];
-    // ╨ô╨╛╤Ç╨╜╨░ ╨┤╤Å╤ü╨╜╨░ ╨║╤Ç╨╕╨▓╨░
+    // Горна дясна крива
     if (steps === 2) {
         pts.push({ x: maxX - r, y: minY }, { x: maxX, y: minY + r });
         pts.push({ x: maxX, y: maxY - r }, { x: maxX - r, y: maxY });
@@ -1972,13 +1973,13 @@ GraphicsManager.createRoundRectPoints = function(x1, y1, x2, y2) {
         pts.push({ x: minX + r, y: maxY }, { x: minX, y: maxY - r });
         pts.push({ x: minX, y: minY + r }, { x: minX + r, y: minY });
     }
-    // ╨ù╨░╤é╨▓╨░╤Ç╤Å╨╝╨╡ ╨│╨╛ ╨┐╨╛ ╨┐╨╛╨┤╤Ç╨░╨╖╨▒╨╕╤Ç╨░╨╜╨╡ (undefined isClosed)
+    // Затваряме го по подразбиране (undefined isClosed)
     return pts;
 };
 
 function exportSVG() {
     if (!GraphicsManager.paths || GraphicsManager.paths.length === 0) {
-        alert("╨¥╤Å╨╝╨░ ╨▓╨╡╨║╤é╨╛╤Ç╨╜╨╛ ╨╕╨╖╨╛╨▒╤Ç╨░╨╢╨╡╨╜╨╕╨╡ ╨╖╨░ ╨╖╨░╨┐╨╕╤ü.");
+        alert("Няма векторно изображение за запис.");
         return;
     }
     
@@ -2022,7 +2023,7 @@ function exportSVG() {
     };
 
     if (isAnalysis) {
-        // ╨ù╨░╨┐╨╕╤ü╨▓╨░╨╝╨╡ ╨í╨É╨£╨₧ ╤à╨░╤Ç╨╝╨╛╨╜╨╕╨╖╨╕╤Ç╨░╨╜╨╕╤é╨╡ ╨╛╨▒╨╡╨║╤é╨╕ (╤ü╨░╨╝╨╛ ╨╡╨┤╨╕╨╜ ╤ü╨╗╨╛╨╣)
+        // Записваме САМО хармонизираните обекти (само един слой)
         svg += dumpPaths(GraphicsManager.paths, "black", 1.0, true);
     } else {
         svg += dumpPaths(GraphicsManager.paths, "black", 1.0, false);
@@ -2139,17 +2140,17 @@ GraphicsManager.applyRelation = function(type) {
 };
 
 GraphicsManager.addRelation = function(rel) {
-    // ╨ƒ╤Ç╨╛╨▓╨╡╤Ç╨║╨░ ╨╖╨░ ╤ü╤è╤ë╨╡╤ü╤é╨▓╤â╨▓╨░╤ë╨░ ╨▓╤Ç╤è╨╖╨║╨░ (╨▓╨║╨╗╤Ä╤ç╨╕╤é╨╡╨╗╨╜╨╛ ╨╕ ╨╛╨│╨╗╨╡╨┤╨░╨╗╨╜╨░ ╨╖╨░ ╤ü╨╕╨╝╨╡╤é╤Ç╨╕╤ç╨╜╨╕ ╤é╨╕╨┐╨╛╨▓╨╡)
+    // Проверка за съществуваща връзка (включително и огледална за симетрични типове)
     const exists = this.relations.find(r => {
         if (r.type !== rel.type) return false;
         if (r.pathIdx !== rel.pathIdx) return false;
         
-        // ╨ù╨░ H/V ╨┐╤Ç╨╛╨▓╨╡╤Ç╤Å╨▓╨░╨╝╨╡ ╨┤╨╕╤Ç╨╡╨║╤é╨╜╨╛
+        // За H/V проверяваме директно
         if (rel.type === 'horizontal' || rel.type === 'vertical') {
             return r.segIdx === rel.segIdx;
         }
         
-        // ╨ù╨░ Equal, Parallel ╨╕ Collinear ╨┐╤Ç╨╛╨▓╨╡╤Ç╤Å╨▓╨░╨╝╨╡ ╨╕ ╨┤╨▓╨╡╤é╨╡ ╨┐╨╛╤ü╨╛╨║╨╕ (A-B ╨╕ B-A)
+        // За Equal, Parallel и Collinear проверяваме и двете посоки (A-B и B-A)
         return (r.segIdx === rel.segIdx && r.targetSegIdx === rel.targetSegIdx) ||
                (r.segIdx === rel.targetSegIdx && r.targetSegIdx === rel.segIdx);
     });
@@ -2157,7 +2158,7 @@ GraphicsManager.addRelation = function(rel) {
 };
 
 GraphicsManager.solve = function(fixed = []) {
-    // ╨ƒ╨╛╨┤╨╛╨▒╤Ç╨╡╨╜ ╤ü╨╛╨╗╨▓╤è╤Ç, ╨║╨╛╨╣╤é╨╛ ╨╖╨░╤ç╨╕╤é╨░ ╤ä╨╕╨║╤ü╨╕╤Ç╨░╨╜╨╕╤é╨╡ (╨▓╨╗╨░╤ç╨╡╨╜╨╕) ╤é╨╛╤ç╨║╨╕
+    // Подобрен солвър, който зачита фиксираните (влечени) точки
     for (let iter = 0; iter < 5; iter++) {
         let changed = false;
         this.relations.forEach(rel => {
@@ -2269,14 +2270,14 @@ GraphicsManager.align = function(type) {
     
     this.saveState();
     
-    // ╨ƒ╨╛╤ü╨╗╨╡╨┤╨╜╨╕╤Å╤é ╤ü╨╡╨╗╨╡╨║╤é╨╕╤Ç╨░╨╜ ╨╛╨▒╨╡╨║╤é ╨╡ ╤Ç╨╡╤ä╨╡╤Ç╨╡╨╜╤é╨╡╨╜
+    // Последният селектиран обект е референтен
     const refPathIdx = this.selectedPaths[this.selectedPaths.length - 1];
     const refPoints = this.paths[refPathIdx];
     const refBBox = this.getBBox(refPoints);
     const refMidX = (refBBox.minX + refBBox.maxX) / 2;
     const refMidY = (refBBox.minY + refBBox.maxY) / 2;
     
-    // ╨Æ╤ü╨╕╤ç╨║╨╕ ╨╛╤ü╤é╨░╨╜╨░╨╗╨╕ ╤ü╨╡ ╨┐╨╛╨┤╤Ç╨░╨▓╨╜╤Å╨▓╨░╤é ╤ü╨┐╤Ç╤Å╨╝╨╛ ╨╜╨╡╨│╨╛
+    // Всички останали се подравняват спрямо него
     for (let i = 0; i < this.selectedPaths.length - 1; i++) {
         const pIdx = this.selectedPaths[i];
         const points = this.paths[pIdx];
@@ -2304,7 +2305,7 @@ GraphicsManager.align = function(type) {
         }
     }
     
-    // ╨Æ╤Ç╤è╨╖╨║╨╕╤é╨╡ ╤é╤Ç╤Å╨▒╨▓╨░ ╨┤╨░ ╤ü╨╡ ╨░╨║╤é╤â╨░╨╗╨╕╨╖╨╕╤Ç╨░╤é (╨░╨║╨╛ ╨╕╨╝╨░ ╤é╨░╨║╨╕╨▓╨░ ╨╝╨╡╨╢╨┤╤â ╤Ç╨░╨╖╨╗╨╕╤ç╨╜╨╕╤é╨╡ ╨╛╨▒╨╡╨║╤é╨╕)
+    // Връзките трябва да се актуализират (ако има такива между различните обекти)
     this.solve();
     this.redraw();
 };
@@ -2312,12 +2313,12 @@ GraphicsManager.align = function(type) {
 GraphicsManager.getSegmentRelations = function(pathIdx) {
     const res = {};
     this.relations.forEach(r => {
-        // ╨ƒ╤Ç╨╛╨▓╨╡╤Ç╤Å╨▓╨░╨╝╨╡ ╨┤╨░╨╗╨╕ ╤é╨╡╨║╤â╤ë╨╕╤Å╤é ╨┐╤è╤é ╨┐╤Ç╨╕╤é╨╡╨╢╨░╨▓╨░ ╨╡╨┤╨╕╨╜╨╕╤Å ╨╕╨╗╨╕ ╨┤╤Ç╤â╨│╨╕╤Å ╤ü╨╡╨│╨╝╨╡╨╜╤é ╨╛╤é ╨▓╤Ç╤è╨╖╨║╨░╤é╨░
+        // Проверяваме дали текущият път притежава единия или другия сегмент от връзката
         if (r.pathIdx === pathIdx) {
             if (!res[r.segIdx]) res[r.segIdx] = [];
             if (!res[r.segIdx].includes(r)) res[r.segIdx].push(r);
             
-            // ╨Æ╨╕╨╖╤â╨░╨╗╨╕╨╖╨╕╤Ç╨░╨╝╨╡ ╨╕ ╨╜╨░ ╤Ç╨╡╤ä╨╡╤Ç╨╡╨╜╤é╨╜╨╕╤Å (╨▓╤é╨╛╤Ç╨╕╤Å) ╤ü╨╡╨│╨╝╨╡╨╜╤é ╨╖╨░ ╤Ç╨╡╨╗╨░╤å╨╕╨╛╨╜╨╜╨╕ ╤é╨╕╨┐╨╛╨▓╨╡
+            // Визуализираме и на референтния (втория) сегмент за релационни типове
             if (r.targetSegIdx !== undefined) {
                 if (!res[r.targetSegIdx]) res[r.targetSegIdx] = [];
                 if (!res[r.targetSegIdx].includes(r)) res[r.targetSegIdx].push(r);
