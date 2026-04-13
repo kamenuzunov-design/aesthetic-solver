@@ -2,6 +2,9 @@
  * Nominal Analysis Module - New Implementation (Phase A)
  */
 
+const ANG_TOL = 2; // Degrees
+const LEN_TOL = 0.02; // 2% of Nominal
+
 const GeometryUtils = {
     getDistance: (p1, p2) => Math.sqrt(Math.pow(p2.x - p1.x, 2) + Math.pow(p2.y - p1.y, 2)),
     
@@ -59,8 +62,10 @@ const GeometryUtils = {
         let p = 0;
         const n = path.length;
         if (n < 2) return 0;
+        const isClosed = path[0].isClosed !== false;
         for (let i = 0; i < n; i++) {
-            p += GeometryUtils.getDistance(path[i], path[(i + 1) % n]);
+            if (!isClosed && i === 0) continue;
+            p += GeometryUtils.getDistance(path[(i-1+n)%n], path[i]);
         }
         return p;
     },
@@ -72,12 +77,70 @@ const GeometryUtils = {
 
     isEffectivelyClosed: (path) => {
         if (!path || path.length < 3) return false;
-        if (path[0].isClosed) return true;
-        // Check distance between start and end
-        const dist = GeometryUtils.getDistance(path[0], path[path.length - 1]);
-        return dist < 1.0; // Tolerance for closure
+        // 1. Check for explicit flag (set by Potrace, SVG parser, or Project loader)
+        const hasFlag = path.some(p => p.isClosed === true);
+        if (hasFlag) return true;
+        
+        // 2. Check for explicit OPEN flag
+        const openFlag = path.some(p => p.isClosed === false);
+        if (openFlag) return false;
+        
+        // 3. Fallback: Epsilon-based endpoint matching
+        const p0 = path[0];
+        const pn = path[path.length - 1];
+        return Math.abs(p0.x - pn.x) < 0.1 && Math.abs(p0.y - pn.y) < 0.1;
+    },
+
+    normalizeContour: (path) => {
+        if (!path || path.length < 2) return path || [];
+        
+        // Remove consecutive duplicate points
+        let pts = [path[0]];
+        for (let i = 1; i < path.length; i++) {
+            if (GeometryUtils.getDistance(path[i-1], path[i]) > 0.05) {
+                pts.push(path[i]);
+            }
+        }
+
+        if (pts.length < 3) return pts;
+
+        const isClosed = GeometryUtils.isEffectivelyClosed(pts);
+        let result = [...pts];
+        let hasChanges = true;
+        let iter = 0;
+
+        while (hasChanges && iter < 5) {
+            hasChanges = false;
+            iter++;
+            let nextResult = [];
+            const n = result.length;
+            
+            for (let i = 0; i < n; i++) {
+                const prev = result[(i - 1 + n) % n];
+                const curr = result[i];
+                const next = result[(i + 1) % n];
+                
+                // Respect endpoints: NEVER remove start/end of array
+                if (i === 0 || i === n - 1) {
+                    nextResult.push(curr);
+                    continue;
+                }
+
+                const angle = GeometryUtils.getAngleAtNode(prev, curr, next);
+                if (Math.abs(angle - 180) < ANG_TOL || Math.abs(angle) < ANG_TOL) {
+                    hasChanges = true;
+                } else {
+                    nextResult.push(curr);
+                }
+            }
+            result = nextResult;
+            if (result.length < 3) break;
+        }
+        
+        return result;
     }
 };
+
 
 const NominalManager = {
     isAnalysisActive: false,
@@ -152,7 +215,8 @@ const NominalManager = {
         this.stepQueue.push({ id: 'PARSING', desc: "Phase A Step 1: Parsing SVG geometry..." });
         this.stepQueue.push({ id: 'NOISE', desc: "Phase A Step 2: Noise Filtering..." });
         this.stepQueue.push({ id: 'PATTERNS', desc: "Phase A Step 3: Pattern Recognition..." });
-        this.stepQueue.push({ id: 'QUALIFY', desc: "Phase B Step 4: Geometric Form Qualification..." });
+        this.stepQueue.push({ id: 'QUALIFY', desc: "Phase A Step 4: Geometric Form Qualification..." });
+        this.stepQueue.push({ id: 'REPORT', desc: "Phase A Step 5: Element Details Report" });
 
         document.getElementById('ui-analysis-status').style.display = 'block';
         
@@ -177,6 +241,11 @@ const NominalManager = {
     },
 
     nextStep: function() {
+        if (this.currentStepIdx === this.stepQueue.length - 1) {
+            // Already at the last step, don't advance further so report stays open
+            return;
+        }
+
         this.currentStepIdx++;
         if (this.currentStepIdx >= this.stepQueue.length) {
             this.updateStatus("Phase A Completed. Waiting for Phase B instructions...");
@@ -199,16 +268,27 @@ const NominalManager = {
             case 'QUALIFY':
                 this.performQualification();
                 break;
+            case 'REPORT':
+                this.performReporting();
+                break;
         }
 
         GraphicsManager.redraw();
     },
 
     updateStatus: function(text) {
+        const containerEl = document.getElementById('ui-analysis-status');
         const statusEl = document.getElementById('ui-analysis-status-text');
-        if (statusEl) {
+        if (statusEl && containerEl) {
+            // Re-enable pointer events so buttons inside can be clicked
+            containerEl.style.pointerEvents = 'auto';
+            
             const progress = `[${this.currentStepIdx + 1}/${this.stepQueue.length}]`;
-            statusEl.innerHTML = `<span style="color: #f1c40f;">${progress}</span> <b>${text}</b><br><small style="opacity: 0.8;">Click canvas to continue (or ESC to exit)</small>`;
+            let hint = `<small style="opacity: 0.8;">Click canvas to continue (or ESC to exit)</small>`;
+            if (this.currentStepIdx === this.stepQueue.length - 1) {
+                hint = `<small style="opacity: 0.8; color: #3498db;">Press ESC to exit Nominal Analysis</small>`;
+            }
+            statusEl.innerHTML = `<span style="color: #f1c40f;">${progress}</span> <b>${text}</b><br>${hint}`;
         }
     },
 
@@ -223,17 +303,32 @@ const NominalManager = {
         let artifactsCount = 0;
 
         this.structuredModel = GraphicsManager.paths.map((p, idx) => {
-            const area = GeometryUtils.getPathArea(p);
-            const bbox = GeometryUtils.getBBox(p);
+            // Apply normalization immediately in Step 1
+            const normalizedPoints = GeometryUtils.normalizeContour(p);
+            
+            const area = GeometryUtils.getPathArea(normalizedPoints);
+            const bbox = GeometryUtils.getBBox(normalizedPoints);
             
             // Sub-pixel "dust" (less than 0.5px area) is tagged as artifact
             const isArtifact = area < 0.5;
             if (isArtifact) artifactsCount++; else formsCount++;
 
+            const isClosed = GeometryUtils.isEffectivelyClosed(normalizedPoints);
+            let N = normalizedPoints.length - 1;
+            if (normalizedPoints.length > 1) {
+                const p0 = normalizedPoints[0];
+                const pn = normalizedPoints[normalizedPoints.length - 1];
+                const isClosingPt = Math.abs(p0.x - pn.x) < 0.1 && Math.abs(p0.y - pn.y) < 0.1;
+                if (isClosed) {
+                    N = isClosingPt ? (normalizedPoints.length - 1) : normalizedPoints.length;
+                }
+            }
+
             return {
                 id: `CTR_${idx}`,
                 originalIndex: idx,
-                points: p,
+                points: normalizedPoints, // Use clean geometry
+                segmentCount: N, // Accurate logical segment count
                 area: area,
                 bbox: bbox,
                 is_noise: false,
@@ -277,9 +372,16 @@ const NominalManager = {
                 if (c2.is_noise || c2.is_meta_group) continue;
 
                 const areaDiff = Math.abs(c1.area - c2.area) / (c1.area || 1);
-                const ptsDiff = Math.abs(c1.points.length - c2.points.length);
-                const dimDiff = Math.abs(c1.bbox.width - c2.bbox.width) / (c1.bbox.width || 1) + 
-                                Math.abs(c1.bbox.height - c2.bbox.height) / (c1.bbox.height || 1);
+                const ptsDiff = Math.abs(c1.segmentCount - c2.segmentCount);
+                
+                // Allow for 90-degree rotated clones by comparing longest & shortest sides
+                const max1 = Math.max(c1.bbox.width, c1.bbox.height);
+                const min1 = Math.min(c1.bbox.width, c1.bbox.height);
+                const max2 = Math.max(c2.bbox.width, c2.bbox.height);
+                const min2 = Math.min(c2.bbox.width, c2.bbox.height);
+                
+                const dimDiff = Math.abs(max1 - max2) / (max1 || 1) + 
+                                Math.abs(min1 - min2) / (min1 || 1);
 
                 if (areaDiff < 0.1 && ptsDiff === 0 && dimDiff < 0.2) {
                     similarOnes.push(c2);
@@ -298,7 +400,7 @@ const NominalManager = {
     },
 
     performQualification: function() {
-        let counts = { rect: 0, circle: 0, ellipse: 0, arc: 0, rrect: 0 };
+        let segmentStats = {}; 
         let metaShapeStatus = {}; 
 
         this.structuredModel.forEach(contour => {
@@ -307,147 +409,182 @@ const NominalManager = {
                 return;
             }
 
-            let figureDetected = false;
-            const pts = contour.points;
-            const n = pts.length;
-            const area = contour.area;
-            const perimeter = GeometryUtils.getPerimeter(pts);
-            const circularity = GeometryUtils.getCircularity(area, perimeter);
-            const bbox = contour.bbox;
-            const bboxArea = bbox.width * bbox.height;
-            const fillRatio = area / (bboxArea || 1);
-            
-            // Critical: Use robust closed-path detection
-            const isClosed = GeometryUtils.isEffectivelyClosed(pts);
+            const points = contour.points;
+            if (!points || points.length < 2) return;
+
+            const isClosed = GeometryUtils.isEffectivelyClosed(points);
+            const N = contour.segmentCount;
+            const p0 = points[0];
+            const pn = points[points.length - 1];
+            const isClosingPt = Math.abs(p0.x - pn.x) < 0.1 && Math.abs(p0.y - pn.y) < 0.1;
+
+            // Tally segment stats dynamically
+            segmentStats[N] = (segmentStats[N] || 0) + 1;
+
+            let type = "polygon";
 
             if (isClosed) {
-                // 1. Rectangle (Structure-based: 4-5 points OR high boxiness)
-                if (fillRatio > 0.92 || (n >= 4 && n <= 6 && this.testRectangle(contour))) {
-                    contour.figureType = 'rectangle';
-                    GraphicsManager.paths[contour.originalIndex].tempColor = "#27ae60"; 
-                    counts.rect++; figureDetected = true;
-                }
-                // 2. Circle (Property-based)
-                else if (circularity > 0.65 && Math.abs(1 - bbox.width/bbox.height) < 0.2) {
-                    contour.figureType = 'circle';
-                    GraphicsManager.paths[contour.originalIndex].tempColor = "#f39c12"; 
-                    counts.circle++; figureDetected = true;
-                } 
-                // 3. Ellipse (Area ratio)
-                else if (this.testEllipse(contour, area)) {
-                    contour.figureType = 'ellipse';
-                    GraphicsManager.paths[contour.originalIndex].tempColor = "#e67e22";
-                    counts.ellipse++; figureDetected = true;
-                } 
-                // 4. Rounded Rectangle (Fill ratio check)
-                else if (fillRatio > 0.70 && fillRatio <= 0.92) {
-                    contour.figureType = 'rounded_rectangle';
-                    GraphicsManager.paths[contour.originalIndex].tempColor = "#2ecc71";
-                    counts.rrect++; figureDetected = true;
+                switch(N) {
+                    case 3: type = "triangle"; break;
+                    case 4: 
+                        type = "quad";
+                        let allRight = true;
+                        // For a closed quad with P points, check angles between segments
+                        // If p0 == pn, we check p0-p1-p2, p1-p2-p3, p2-p3-p4, p3-p4-p0
+                        const checkPoints = isClosingPt ? points.slice(0, -1) : points;
+                        for (let i = 0; i < 4; i++) {
+                            const cp1 = checkPoints[i];
+                            const cp2 = checkPoints[(i+1)%4];
+                            const cp3 = checkPoints[(i+2)%4];
+                            const angle = GeometryUtils.getAngleAtNode(cp1, cp2, cp3);
+                            if (Math.abs(angle - 90) > ANG_TOL) allRight = false;
+                        }
+                        if (allRight) {
+                            const d1 = GeometryUtils.getDistance(checkPoints[0], checkPoints[1]);
+                            const d2 = GeometryUtils.getDistance(checkPoints[1], checkPoints[2]);
+                            const tol = this.nominalValue > 0 ? (LEN_TOL * (this.nominalValue / this.pxToUnitRatio)) : 2.0;
+                            type = (Math.abs(d1 - d2) < tol) ? "square" : "rectangle";
+                        }
+                        break;
+                    case 8: type = "rrect"; break;
+                    default: {
+                        // Topographical Check for Arch (Свод)
+                        const checkPoints = isClosingPt ? points.slice(0, -1) : points;
+                        let corners90 = [];
+                        let isSmoothElse = true;
+                        let signs = [];
+                        
+                        for (let i = 0; i < N; i++) {
+                            const p1 = checkPoints[(i - 1 + N) % N];
+                            const p2 = checkPoints[i];
+                            const p3 = checkPoints[(i + 1) % N];
+                            
+                            const cp = GeometryUtils.getCrossProduct(p1, p2, p3);
+                            if (Math.abs(cp) > 0.1) signs.push(Math.sign(cp));
+                            
+                            const angle = GeometryUtils.getAngleAtNode(p1, p2, p3);
+                            if (Math.abs(angle - 90) < 15) { // Allow 75-105 deg for manual architectural base
+                                corners90.push(i);
+                            } else if (angle < 120) {
+                                isSmoothElse = false;
+                            }
+                        }
+                        
+                        const isConvex = signs.length > 0 && signs.every(s => s === signs[0]);
+                        
+                        if (isConvex && corners90.length === 2 && isSmoothElse) {
+                            const diff = Math.abs(corners90[0] - corners90[1]);
+                            if (diff === 1 || diff === N - 1) {
+                                type = "arch";
+                                break;
+                            }
+                        }
+
+                        // Fallback to Circle, Ellipse, or N-gon
+                        if (N > 8) {
+                            const centroid = GeometryUtils.getCentroid(checkPoints);
+                            let dists = checkPoints.map(p => GeometryUtils.getDistance(p, centroid));
+                            const Rmax = Math.max(...dists);
+                            const Rmin = Math.min(...dists);
+                            
+                            if ((Rmax - Rmin) / (Rmax || 1) <= 0.15) {
+                                type = "circle";
+                            } else {
+                                type = "ellipse";
+                            }
+                        } else {
+                            type = `${N}-gon`;
+                        }
+                        break;
+                    }
                 }
             } else {
-                // 5. Arc (Only for truly open paths)
-                if (this.testArc(contour)) {
-                    contour.figureType = 'arc';
-                    GraphicsManager.paths[contour.originalIndex].tempColor = "#8e44ad"; 
-                    counts.arc++; figureDetected = true;
+                // Open paths
+                if (N === 1) type = "line";
+                else if (N >= 3) {
+                    let isSmooth = true;
+                    let signs = [];
+                    for (let i = 1; i < points.length - 1; i++) {
+                        const angle = GeometryUtils.getAngleAtNode(points[i-1], points[i], points[i+1]);
+                        if (angle < 90) isSmooth = false; // Angles smaller than 90 indicate sharp jagged turns, not an arc
+                        const cp = GeometryUtils.getCrossProduct(points[i-1], points[i], points[i+1]);
+                        if (Math.abs(cp) > 0.1) signs.push(Math.sign(cp));
+                    }
+                    if (isSmooth && signs.length > 0 && signs.every(s => s === signs[0])) type = "arc";
+                    else type = "polyline";
+                } else {
+                    type = "polyline";
                 }
             }
 
-            if (contour.is_meta_group && figureDetected) {
-                const type = contour.figureType;
+            contour.figureType = type;
+            
+            // Visuals
+            const palette = {
+                triangle: "#e74c3c", square: "#2ecc71", rectangle: "#27ae60", quad: "#1abc9c",
+                circle: "#f1c40f", ellipse: "#f39c12", rrect: "#d35400", arc: "#9b59b6",
+                arch: "#8e44ad", // Deep Purple for Vaults/Arches
+                line: "#3498db", polyline: "#7f8c8d", polygon: "#34495e"
+            };
+            GraphicsManager.paths[contour.originalIndex].tempColor = palette[type] || "#34495e";
+
+            if (contour.is_meta_group) {
                 metaShapeStatus[type] = (metaShapeStatus[type] || 0) + 1;
             }
-
             if (contour.is_nominal) {
-                GraphicsManager.paths[contour.originalIndex].tempColor = "#f1c40f"; 
-            } else if (contour.is_meta_group && !figureDetected) {
-                GraphicsManager.paths[contour.originalIndex].tempColor = "#00ffff";
-            } else if (!figureDetected) {
-                GraphicsManager.paths[contour.originalIndex].tempColor = "#34495e";
+                GraphicsManager.paths[contour.originalIndex].tempColor = "#00ffff"; 
             }
         });
 
+        // Build segment report
+        let segmentReport = [];
+        Object.keys(segmentStats).sort((a,b) => a-b).forEach(n => {
+            segmentReport.push(`${n}seg: ${segmentStats[n]}`);
+        });
+
         const nominal = this.structuredModel.find(c => c.is_nominal);
-        const nominalStr = nominal ? (nominal.figureType || "Complex Form") : "None";
+        const nominalStr = nominal ? `Nominal: ${nominal.figureType.toUpperCase()}` : "Nominal: Unknown";
         
-        let groupSummary = "";
-        for (let type in metaShapeStatus) {
-            groupSummary += `${metaShapeStatus[type]} ${type}s in groups, `;
+        let groups = [];
+        for (let t in metaShapeStatus) { 
+            const label = t.charAt(0).toUpperCase() + t.slice(1);
+            groups.push(`${metaShapeStatus[t]} ${label}s`); 
         }
-        if (groupSummary) groupSummary = " (" + groupSummary.slice(0, -2) + ")";
+        const groupsStr = groups.length > 0 ? `Groups: ${groups.join(", ")}` : "No Groups";
 
-        const totalUseful = this.structuredModel.filter(c => !c.is_noise).length;
-        this.updateStatus(`Step 4: ${totalUseful} useful forms. Nominal: ${nominalStr}. Details: ${counts.circle} Circles, ${counts.ellipse} Ellipses, ${counts.rect} Rects, ${counts.rrect} R-Rects, ${counts.arc} Arcs.${groupSummary}`);
+        const msg = `<span style='font-size:14px'><b>${nominalStr}</b> | ${segmentReport.join(", ")}<br><small>${groupsStr} | Note: Nominal element is excluded from Group counts</small></span>`;
+        this.updateStatus(msg);
     },
 
-    testCircle: function(contour) {
-        if (contour.points.length < 8 || !contour.points[0].isClosed) return false;
-        const centroid = GeometryUtils.getCentroid(contour.points);
-        let dists = contour.points.map(p => GeometryUtils.getDistance(p, centroid));
-        const avgDist = dists.reduce((a, b) => a + b, 0) / dists.length;
-        const maxDev = Math.max(...dists.map(d => Math.abs(d - avgDist))) / avgDist;
-        return maxDev < 0.05; // 5% tolerance for "Potrace" circles
-    },
-
-    testEllipse: function(contour, actualArea) {
-        if (contour.points.length < 8) return false;
-        const bbox = contour.bbox;
-        const a = bbox.width / 2;
-        const b = bbox.height / 2;
-        const theoreticalArea = Math.PI * a * b;
+    performReporting: function() {
+        let lines = [];
+        let plainLines = []; // For clipboard
         
-        // Ellipse area ratio check (usually 1.0 but Potrace might be slightly off)
-        const ratio = actualArea / theoreticalArea;
-        return ratio > 0.85 && ratio < 1.15;
-    },
-
-    testRectangle: function(contour, isRounded = false) {
-        if (!contour.points[0].isClosed) return false;
-        
-        const pts = contour.points;
-        const n = pts.length;
-        let rightAngles = 0;
-        
-        for (let i = 0; i < n; i++) {
-            const pPrev = pts[(i - 1 + n) % n];
-            const pCurr = pts[i];
-            const pNext = pts[(i + 1) % n];
-            const angle = GeometryUtils.getAngleAtNode(pPrev, pCurr, pNext);
+        this.structuredModel.forEach((c) => {
+            if (c.is_noise) return;
+            const type = c.figureType ? c.figureType.toUpperCase() : "UNKNOWN";
+            const N = c.segmentCount;
+            const prefixHtml = c.is_nominal ? "<strong style='color:#00ffff'>[NOMINAL]</strong> " : 
+                               (c.is_meta_group ? "<span style='color:#00ffff'>[GROUPED]</span> " : "");
+            const prefixPlain = c.is_nominal ? "[NOMINAL] " : (c.is_meta_group ? "[GROUPED] " : "");
             
-            // Relaxed tolerance for Potrace noise
-            const isRight = Math.abs(angle - 90) < 20 || Math.abs(angle - 270) < 20;
-            if (isRight) rightAngles++;
-        }
+            const w = c.bbox.width.toFixed(1);
+            const h = c.bbox.height.toFixed(1);
+            
+            lines.push(`&bull; ID: ${c.id.replace('CTR_','')} | ${N}seg | ${type} | ${prefixHtml} (W: ${w}, H: ${h})`);
+            plainLines.push(`ID: ${c.id.replace('CTR_','')} | ${N}seg | ${type} | ${prefixPlain} (W: ${w}, H: ${h})`);
+        });
 
-        if (isRounded) {
-            // Rounded rectangles might have fewer sharp corners but still 4 "turning" areas
-            return rightAngles >= 2 && n >= 8;
-        } else {
-            return rightAngles >= 4;
-        }
-    },
+        // Store for clipboard access
+        this._lastReportText = `Elements Report:\n` + plainLines.join("\n");
 
-    testArc: function(contour) {
-        if (contour.points.length < 5) return false;
-        const pts = contour.points;
-        let directions = [];
+        const scrollBox = `<div style="max-height:200px; overflow-y:auto; text-align:left; background:rgba(0,0,0,0.5); padding:8px; margin-top:5px; border-radius:4px; font-family:monospace; line-height:1.4;">
+            ${lines.join("<br>")}
+        </div>`;
 
-        for (let i = 1; i < pts.length - 1; i++) {
-            const cp = GeometryUtils.getCrossProduct(pts[i-1], pts[i], pts[i+1]);
-            if (Math.abs(cp) > 0.1) { // Ignore tiny jitters
-                directions.push(Math.sign(cp));
-            }
-        }
-        
-        if (directions.length < 3) return false;
-        
-        // Percentage of segments bending in the same direction
-        const posCount = directions.filter(d => d > 0).length;
-        const negCount = directions.filter(d => d < 0).length;
-        const consistency = Math.max(posCount, negCount) / directions.length;
+        const copyBtn = `<button onclick="navigator.clipboard.writeText(NominalManager._lastReportText).then(()=>alert('Скопирано в клипборда!'))" style="background:#3498db; color:white; border:none; padding:4px 8px; border-radius:3px; cursor:pointer; font-size:11px; margin-left: 10px;">Copy Report</button>`;
 
-        return consistency > 0.85; // Curvature is consistent
+        this.updateStatus(`Detailed Elements Report (${lines.length} items) ${copyBtn}<br>${scrollBox}`);
     },
 
     exitAnalysis: function() {

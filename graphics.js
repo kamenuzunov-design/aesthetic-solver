@@ -196,6 +196,7 @@ const GraphicsManager = {
                 for (let i = 0; i < path.curve.n; i++) {
                     points.push({ x: path.curve.c[i * 3 + 2].x, y: path.curve.c[i * 3 + 2].y });
                 }
+                if (points.length > 0) points[0].isClosed = true;
                 return points;
             });
             this.history = []; // Изчистваме историята
@@ -1607,7 +1608,9 @@ const GraphicsManager = {
                 }
             }
         }
-        if (pts.length > 0 && !isClosed) pts[0].isClosed = false;
+        if (pts.length > 0) {
+            pts[0].isClosed = isClosed;
+        }
         return pts;
     },
 
@@ -1771,7 +1774,9 @@ const GraphicsManager = {
                     this.paths = data.contours.map(c => {
                         const pts = c.nodes.map(n => ({ x: n.x, y: n.y, id: n.id }));
                         pts.id = c.id;
-                        if (!c.is_closed) pts[0].isClosed = false;
+                        if (pts.length > 0) {
+                            pts[0].isClosed = (c.is_closed === true);
+                        }
                         return pts;
                     });
                     
